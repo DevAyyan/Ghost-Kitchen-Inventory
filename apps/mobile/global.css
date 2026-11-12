@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Ghost Kitchen is dark-only (see docs/design-contract.md).
+   The same palette is declared for :root and .dark:root so the system theme never flips it. */
+@layer base {
+  :root,
+  .dark:root {
+    --background: 228 22% 7%;
+    --foreground: 225 25% 94%;
+    --card: 228 20% 10%;
+    --card-foreground: 225 25% 94%;
+    --popover: 228 20% 11%;
+    --popover-foreground: 225 25% 94%;
+    --primary: 160 64% 52%;
+    --primary-foreground: 228 30% 8%;
+    --secondary: 228 16% 16%;
+    --secondary-foreground: 225 25% 94%;
+    --muted: 228 16% 14%;
+    --muted-foreground: 226 14% 68%;
+    --accent: 228 16% 18%;
+    --accent-foreground: 225 25% 94%;
+    --destructive: 0 72% 62%;
+    --border: 228 14% 20%;
+    --input: 228 14% 24%;
+    --ring: 160 64% 52%;
+    --radius: 0.5rem;
+
+    /* Freshness stages: the only colourful system in the UI. Always paired with an icon and label. */
+    --stage-fresh: 142 62% 56%;
+    --stage-aging: 72 62% 56%;
+    --stage-expiring: 28 95% 60%;
+    --stage-rotting: 275 62% 72%;
+    --stage-spoiled: 215 10% 66%;
+    --warning: 40 92% 62%;
+
+    /* Fridge cabinet surfaces */
+    --cabinet: 220 18% 16%;
+    --cabinet-shelf: 210 30% 80%;
+    --pantry: 27 32% 13%;
+
+    /* Paper receipt preview */
+    --paper: 40 40% 93%;
+    --paper-foreground: 30 12% 16%;
+  }
+}

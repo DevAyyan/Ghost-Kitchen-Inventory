@@ -1,0 +1,130 @@
+import { FoodPhoto } from '@/components/food/food-photo';
+import { STAGE_STYLE } from '@/components/stage/stage-style';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
+import { Icon } from '@/components/ui/icon';
+import { Text } from '@/components/ui/text';
+import { daysLeft, remainingText, shortRemaining, stageOf } from '@/lib/domain/expiry';
+import type { Item } from '@/lib/domain/types';
+import { forgottenText, isForgotten, untouchedDays } from '@/lib/domain/haunt';
+import { formatAmount, formatQty, spokenQty } from '@/lib/domain/units';
+import { cn } from '@/lib/utils';
+import * as React from 'react';
+import { Pressable, View } from 'react-native';
+import { FoodHoverDetails } from './food-hover-card';
+import { Cobweb, ExpiringGlow, Flies, Mould, RisingGhost, Yellowing } from './haunt-effects';
+
+/** Tile width in px (matches `w-16 md:w-20`) and the gap between tiles (`gap-3`), for shelf row maths. */
+export const TILE_GAP = 12;
+export const tileWidth = (isPhone: boolean) => (isPhone ? 64 : 80);
+
+interface FoodTileProps {
+  item: Item;
+  selected: boolean;
+  onPress: (id: string) => void;
+  /** Desktop browser with a mouse: show a floating summary card on hover (see useCanHover). */
+  hoverCard?: boolean;
+}
+
+/** How long the pointer rests on a tile before its card opens, and lingers after leaving. */
+const HOVER_OPEN_MS = 350;
+const HOVER_CLOSE_MS = 100;
+
+/**
+ * One food item on a shelf: the user's photo, name and days left.
+ * Stage = border colour + border style + corner icon + days text, plus its decay "costume": yellowing
+ * (aging), glow (expiring), mould and flies (rotting), a rising ghost (spoiled), cobwebs (forgotten).
+ */
+export const FoodTile = React.memo(function FoodTile({ item, selected, onPress, hoverCard }: FoodTileProps) {
+  if (!hoverCard) return <Tile item={item} selected={selected} onPress={onPress} />;
+  return <HoverableTile item={item} selected={selected} onPress={onPress} />;
+});
+
+function HoverableTile({ item, selected, onPress }: Omit<FoodTileProps, 'hoverCard'>) {
+  // Clicking opens the full details, so the summary gets out of the way and stays hidden until the pointer
+  // leaves the tile; the hover card then reports itself closed, which re-arms it for the next hover.
+  const [dismissed, setDismissed] = React.useState(false);
+  return (
+    <HoverCard openDelay={HOVER_OPEN_MS} closeDelay={HOVER_CLOSE_MS} onOpenChange={(open) => !open && setDismissed(false)}>
+      <HoverCardTrigger asChild>
+        <Tile item={item} selected={selected} onPress={(id) => { setDismissed(true); onPress(id); }} />
+      </HoverCardTrigger>
+      {!dismissed && (
+        <HoverCardContent side="top" className="w-64 p-3" aria-hidden>
+          <FoodHoverDetails item={item} />
+        </HoverCardContent>
+      )}
+    </HoverCard>
+  );
+}
+
+/** Forwards its ref and any trigger props (pointer handlers from the hover card) to the Pressable. */
+const Tile = React.forwardRef<View, Omit<FoodTileProps, 'hoverCard'> & Omit<React.ComponentProps<typeof Pressable>, 'onPress' | 'children'>>(function Tile(
+  { item, selected, onPress, ...triggerProps },
+  ref
+) {
+  const stage = stageOf(item);
+  const s = STAGE_STYLE[stage];
+  const rem = daysLeft(item);
+  const partly = item.fraction < 1;
+  const left = item.qty * item.fraction;
+  // Badge: what's left, when that's useful: "5 left" of a dozen eggs, "0.4 kg" of tomatoes.
+  const amountBadge = partly || item.qty !== 1 || item.unit !== 'pcs'
+    ? (item.unit === 'pcs' ? `${formatAmount(left)}${partly ? ' left' : ''}` : formatQty(left, item.unit))
+    : null;
+
+  const untouched = untouchedDays(item);
+  const forgotten = isForgotten(item, stage);
+
+  const label = [
+    item.name,
+    s.label,
+    remainingText(rem),
+    item.expiryConfirmed ? null : 'expiry date estimated, please check',
+    amountBadge ? `${spokenQty(left, item.unit)}${partly ? ' left' : ''}` : null,
+    forgotten && untouched !== null ? forgottenText(untouched) : null,
+  ].filter(Boolean).join(', ');
+
+  return (
+    <Pressable
+      ref={ref}
+      {...triggerProps}
+      onPress={() => onPress(item.id)}
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      accessibilityLabel={label}
+      className={cn(
+        'bg-background/80 web:hover:bg-accent relative min-h-24 w-16 justify-center rounded-lg border-2 px-1 py-1 md:w-20',
+        'web:focus-visible:ring-2 web:focus-visible:ring-ring web:outline-none',
+        s.border,
+        stage === 'rotting' && 'bg-stage-rotting/10',
+        selected && 'border-primary'
+      )}>
+      {stage === 'expiring' && <ExpiringGlow />}
+      {stage === 'rotting' && <Flies />}
+      {stage === 'spoiled' && <RisingGhost />}
+      <View className="items-center gap-0.5">
+        <FoodPhoto photoUri={item.photoUri} category={item.category} stage={stage} size="md">
+          {stage === 'aging' && <Yellowing />}
+          {stage === 'rotting' && <Mould id={item.id} daysOver={-rem} />}
+          {/* Inside the photo's bottom corner, so it never covers the name, days left or the badges. */}
+          {forgotten && <Cobweb className="bottom-0 right-0 h-7 w-7 rotate-180" />}
+        </FoodPhoto>
+        <Text numberOfLines={1} className="w-full text-center text-xs font-semibold">
+          {item.name}
+        </Text>
+        <Text className={cn('text-[11px] tabular-nums', item.expiryConfirmed ? 'text-muted-foreground' : 'text-warning')}>
+          {shortRemaining(rem)}
+          {item.expiryConfirmed ? '' : ' · est.'}
+        </Text>
+      </View>
+      <View className={cn('border-background absolute -right-2 -top-2 h-6 w-6 items-center justify-center rounded-full border-2', s.bg)}>
+        <Icon as={s.icon} size={12} className="text-background" />
+      </View>
+      {amountBadge && (
+        <View className="border-border bg-secondary absolute -left-2 -top-2 rounded-md border px-1">
+          <Text className="text-[10px] font-semibold tabular-nums">{amountBadge}</Text>
+        </View>
+      )}
+    </Pressable>
+  );
+});

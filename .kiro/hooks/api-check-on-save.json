@@ -1,0 +1,16 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "API: typecheck and test on save",
+      "trigger": "PostFileSave",
+      "description": "Runs the API typecheck and the Vitest suite whenever an API source or test file is saved.",
+      "matcher": "apps/api/(src|test)/.*\\.ts$",
+      "action": {
+        "type": "command",
+        "command": "cd apps/api && npm run --silent typecheck && npm test --silent",
+        "timeout": 120
+      }
+    }
+  ]
+}

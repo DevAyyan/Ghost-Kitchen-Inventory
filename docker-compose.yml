@@ -1,0 +1,79 @@
+# Ghost Kitchen: free, self-hosted stack that fits a 4 GB RAM machine.
+#
+#   cp .env.example .env      # fill in every CHANGE_ME
+#   docker compose up -d --build
+#   open http://localhost:3000
+#
+# Memory (hard limits): db 256M + ocr 384M + api 256M. AI runs on the Gemini API, no local model.
+# Containers don't start on their own at boot (restart: "no"). On a dedicated server, change it to unless-stopped.
+# Dev with hot reload: `docker compose up -d db ocr`, then run apps/api and apps/mobile on the host.
+
+name: ghost-kitchen
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: "no"
+    mem_limit: 256m
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    command: [postgres, -c, shared_buffers=64MB, -c, work_mem=2MB, -c, maintenance_work_mem=32MB, -c, effective_cache_size=128MB, -c, max_connections=20]
+    ports:
+      # Host port is configurable (5433 default avoids clashing with other local Postgres instances).
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  # Tesseract OCR: reads receipt text. Gemini then structures it.
+  ocr:
+    build: ./infra/ocr
+    restart: "no"
+    mem_limit: 384m
+    environment:
+      OCR_LANGS: ${OCR_LANGS:-eng}
+    ports:
+      - "127.0.0.1:8080:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: "no"
+    mem_limit: 256m
+    depends_on:
+      db:
+        condition: service_healthy
+      ocr:
+        condition: service_healthy
+    environment:
+      NODE_OPTIONS: --max-old-space-size=180
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      OCR_URL: http://ocr:8080
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash}
+      GEMINI_FALLBACK_MODEL: ${GEMINI_FALLBACK_MODEL:-gemini-3.5-flash-lite}
+      GEMINI_RPM_LIMIT: ${GEMINI_RPM_LIMIT:-5}
+      GEMINI_FALLBACK_RPM_LIMIT: ${GEMINI_FALLBACK_RPM_LIMIT:-10}
+      GEMINI_RPD_LIMIT: ${GEMINI_RPD_LIMIT:-250}
+      MEALDB_API_KEY: ${MEALDB_API_KEY:-1}
+      API_TOKEN: ${API_TOKEN:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+      TRUST_PROXY: ${TRUST_PROXY:-false}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - "${API_HOST_PORT:-3000}:3000"
+
+volumes:
+  pgdata:

@@ -1,0 +1,16 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Mobile: typecheck on save",
+      "trigger": "PostFileSave",
+      "description": "Typechecks the Expo app whenever a screen, component or lib file is saved.",
+      "matcher": "apps/mobile/(app|components|lib)/.*\\.tsx?$",
+      "action": {
+        "type": "command",
+        "command": "cd apps/mobile && npx tsc --noEmit",
+        "timeout": 180
+      }
+    }
+  ]
+}
