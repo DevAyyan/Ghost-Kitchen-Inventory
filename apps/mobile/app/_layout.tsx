@@ -1,4 +1,5 @@
 import '@/global.css';
+import '@/lib/nativewind-interop';
 
 import { Toaster } from '@/components/common/toaster';
 import { Skeleton } from '@/components/ui/skeleton';

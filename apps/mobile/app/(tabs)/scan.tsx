@@ -19,6 +19,7 @@ import { useServer } from '@/lib/store/server-store';
 import { toast } from '@/lib/store/toast';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Camera, CircleAlert, Images, LoaderCircle, PenLine, ReceiptText, ScanLine, Server } from 'lucide-react-native';
+import { cn } from '@/lib/utils';
 import * as React from 'react';
 import { Image, View } from 'react-native';
 
@@ -116,10 +117,10 @@ export default function ScanScreen() {
 
   if (!isApiConfigured()) {
     return (
-      <Screen title="Scan a receipt">
+      <Screen needsServer title="Scan a receipt">
         <Alert icon={Server}>
           <AlertTitle>Connect to your Ghost Kitchen server</AlertTitle>
-          <AlertDescription>Receipts are read by your server (text recognition plus Gemini). Add its address in Settings, or enter items by hand.</AlertDescription>
+          <AlertDescription>Your Ghost Kitchen server reads receipts and photos. Add its address in Settings, or enter items by hand.</AlertDescription>
         </Alert>
         <View className="flex-row flex-wrap gap-2">
           <Button className="h-11" onPress={() => router.navigate('/settings')}><Text>Open Settings</Text></Button>
@@ -133,7 +134,7 @@ export default function ScanScreen() {
 
   if (phase.kind === 'reading') {
     return (
-      <Screen title={phase.mode === 'item' ? 'Identifying your item…' : 'Reading your receipt…'} description="This usually takes 5 to 15 seconds.">
+      <Screen needsServer title={phase.mode === 'item' ? 'Identifying your item…' : 'Reading your receipt…'} description="This usually takes 5 to 15 seconds.">
         <View className={isPhone ? 'gap-4' : 'flex-row items-start gap-6'}>
           <Image source={{ uri: phase.photo.previewUri }} accessibilityLabel={phase.mode === 'item' ? 'Your item photo' : 'Your receipt'} resizeMode="contain" className="bg-muted aspect-[3/4] w-full max-w-xs self-center rounded-lg" />
           <Card className="flex-1 py-2">
@@ -151,9 +152,9 @@ export default function ScanScreen() {
   }
 
   return (
-    <Screen
+    <Screen needsServer
       title="Stock your fridge"
-      description="Photograph a receipt for items and prices, or snap single items one by one. You check everything before it goes in.">
+      description="Photograph a receipt, or single items without one. Nothing goes in until you check it.">
       {phase.kind === 'error' && (
         <Alert icon={CircleAlert} variant="destructive">
           <AlertTitle>{phase.title}</AlertTitle>
@@ -164,48 +165,54 @@ export default function ScanScreen() {
           </View>
         </Alert>
       )}
-      <Card className="border-dashed">
-        <CardContent className="items-center gap-3">
-          <Icon as={ScanLine} size={36} className="text-primary" />
-          <Text role="heading" aria-level={2} className="text-center font-semibold">{isPhone ? 'Snap an item' : 'Upload a photo of an item'}</Text>
-          <Text className="text-muted-foreground max-w-md text-center text-sm">
-            One item per photo, close up and in good light. Gemini names it and reads the date printed on the pack when it can. Good for things without a receipt: leftovers, gifts, market buys. No price, so it stays out of your ledger unless you add one.
-          </Text>
-          <View className="flex-row flex-wrap justify-center gap-2">
-            <Button className="h-11" onPress={() => void pick('camera', 'item')}>
-              <Icon as={Camera} size={16} className="text-primary-foreground" />
-              <Text>Photo of item</Text>
-            </Button>
-            <Button variant="outline" className="h-11" onPress={() => void pick('library', 'item')}>
-              <Icon as={Images} size={16} />
-              <Text>{isPhone ? 'Gallery' : 'Choose image'}</Text>
-            </Button>
-          </View>
-        </CardContent>
-      </Card>
-      <Card className="border-dashed">
-        <CardContent className="items-center gap-3">
-          <Icon as={ReceiptText} size={36} className="text-primary" />
-          <Text role="heading" aria-level={2} className="text-center font-semibold">{isPhone ? 'Snap your receipt' : 'Upload a photo of your receipt'}</Text>
-          <Text className="text-muted-foreground max-w-md text-center text-sm">
-            Lay it flat in good light with the whole receipt in frame. {settings.tesseractOnly ? 'AI is off, so reading is basic.' : 'Read by text recognition and Gemini.'}
-          </Text>
-          <View className="flex-row flex-wrap justify-center gap-2">
-            <Button variant="outline" className="h-11" onPress={() => void pick('camera')}>
-              <Icon as={Camera} size={16} />
-              <Text>Take photo</Text>
-            </Button>
-            <Button variant="outline" className="h-11" onPress={() => void pick('library')}>
-              <Icon as={Images} size={16} />
-              <Text>{isPhone ? 'Gallery' : 'Choose image'}</Text>
-            </Button>
-            <Button variant="ghost" className="h-11" onPress={() => router.push({ pathname: '/review', params: { manual: '1' } })}>
-              <Icon as={PenLine} size={16} />
-              <Text>Enter manually</Text>
-            </Button>
-          </View>
-        </CardContent>
-      </Card>
+      {/* Receipt first: it's the main way in and brings prices. Single items are for food without one.
+          flex-1 only side by side: in the phone's column it would force both cards to the same height. */}
+      <View className={isPhone ? 'gap-4' : 'flex-row items-stretch gap-4'}>
+        <Card className={isPhone ? undefined : 'flex-1'}>
+          <CardContent className={cn('gap-3', !isPhone && 'flex-1')}>
+            <Icon as={ReceiptText} size={32} className="text-primary" />
+            <Text role="heading" aria-level={2} className="font-semibold">{isPhone ? 'Snap your receipt' : 'Upload a photo of your receipt'}</Text>
+            {/* Side by side the text grows, so both cards' buttons line up along the bottom. */}
+            <Text className={cn('text-muted-foreground text-sm', !isPhone && 'flex-1')}>
+              Lay it flat in good light with the whole receipt in frame. We read the items and prices, and you check them before anything goes in.
+              {settings.tesseractOnly ? ' AI reading is off, so names stay as printed.' : ''}
+            </Text>
+            <View className="flex-row flex-wrap gap-2">
+              <Button className="h-11" onPress={() => void pick('camera')}>
+                <Icon as={Camera} size={16} className="text-primary-foreground" />
+                <Text>Take photo</Text>
+              </Button>
+              <Button variant="outline" className="h-11" onPress={() => void pick('library')}>
+                <Icon as={Images} size={16} />
+                <Text>{isPhone ? 'Gallery' : 'Choose image'}</Text>
+              </Button>
+            </View>
+          </CardContent>
+        </Card>
+        <Card className={isPhone ? undefined : 'flex-1'}>
+          <CardContent className={cn('gap-3', !isPhone && 'flex-1')}>
+            <Icon as={ScanLine} size={32} className="text-primary" />
+            <Text role="heading" aria-level={2} className="font-semibold">{isPhone ? 'Snap a single item' : 'Upload a photo of one item'}</Text>
+            <Text className={cn('text-muted-foreground text-sm', !isPhone && 'flex-1')}>
+              For food without a receipt: leftovers, gifts, market buys. One item per photo, close up. We name it and read any date printed on the pack. It has no price, so it stays out of your ledger unless you add one.
+            </Text>
+            <View className="flex-row flex-wrap gap-2">
+              <Button variant="outline" className="h-11" onPress={() => void pick('camera', 'item')}>
+                <Icon as={Camera} size={16} />
+                <Text>Photo of item</Text>
+              </Button>
+              <Button variant="outline" className="h-11" onPress={() => void pick('library', 'item')}>
+                <Icon as={Images} size={16} />
+                <Text>{isPhone ? 'Gallery' : 'Choose image'}</Text>
+              </Button>
+            </View>
+          </CardContent>
+        </Card>
+      </View>
+      <Button variant="ghost" className="h-11 self-start" onPress={() => router.push({ pathname: '/review', params: { manual: '1' } })}>
+        <Icon as={PenLine} size={16} />
+        <Text>No photo? Enter items by hand</Text>
+      </Button>
 
       <ConfirmDialog
         open={noticeFor !== null}

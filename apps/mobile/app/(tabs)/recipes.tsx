@@ -16,7 +16,7 @@ import { DIETS, dietNotes, type Diet } from '@/lib/domain/diets';
 import { dayLabel } from '@/lib/domain/dates';
 import { daysLeft, isAtRisk, isCookable, shortRemaining, stageOf } from '@/lib/domain/expiry';
 import type { Item, Money } from '@/lib/domain/types';
-import { useActiveItems, useLayout } from '@/lib/hooks';
+import { useActiveItems, useCanHover, useLayout } from '@/lib/hooks';
 import { useSummarize } from '@/lib/rates';
 import { useApp } from '@/lib/store/app-store';
 import { useSettings } from '@/lib/store/settings-store';
@@ -72,18 +72,32 @@ export default function RecipesScreen() {
 
   const byId = React.useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
 
+  /** 0 = best-first. "Find again" picks a new one; paging and diet changes keep it, so pages stay stable. */
+  const seedRef = React.useRef(0);
+  /** Recipes shown on page 1 before each "Find again", so the next mix starts with ones not seen yet. */
+  const seenRef = React.useRef<string[]>([]);
+
   /** Fetches one page (always from the server, so going back shows exactly that page's recipes again). */
-  const load = React.useCallback(async (diets: Diet[], page = 1) => {
+  const load = React.useCallback(async (diets: Diet[], page = 1, opts: { fresh?: boolean; best?: boolean } = {}) => {
+    if (opts.best) { seedRef.current = 0; seenRef.current = []; }
     const id = ++reqId.current;
     setCooked(null);
     const prev = stateRef.current;
+    const shown = prev.kind === 'done' ? prev.recipes.map((r) => r.id) : [];
+    if (opts.fresh) {
+      seedRef.current = 1 + Math.floor(Math.random() * 2_000_000_000);
+      const total = prev.kind === 'done' ? prev.paging.total : 0;
+      const seen = [...new Set([...seenRef.current, ...shown])];
+      // Once (nearly) everything has been seen, start the rotation over instead of showing only repeats.
+      seenRef.current = seen.length + PAGE_SIZE > total ? shown : seen.slice(-60);
+    }
     setState({ kind: 'loading', paging: prev.kind === 'done' && page !== 1 ? prev.paging : undefined });
     if (page !== 1) scrollRef.current?.scrollTo({ y: 0, animated: false });
     const usable = useApp.getState().items.filter((i) => i.status === 'active' && isCookable(i));
     try {
       const res = await api.suggestRecipes({
         items: usable.map((i) => ({ id: i.id, name: i.name, urgency: urgencyOf(i) })),
-        diets, limit: PAGE_SIZE, page, useAi: !useSettings.getState().settings.tesseractOnly,
+        diets, limit: PAGE_SIZE, page, seed: seedRef.current, seen: seenRef.current, useAi: !useSettings.getState().settings.tesseractOnly,
       });
       if (id !== reqId.current) return;
       // The fridge may have changed since the last page (something cooked): stay within the real range.
@@ -95,6 +109,12 @@ export default function RecipesScreen() {
         kind: 'done', recipes: res.recipes, warnings: res.warnings,
         paging: { page: res.page.number, pages: res.page.pages, total: res.page.total },
       });
+      if (opts.fresh) {
+        const ids = res.recipes.map((r) => r.id);
+        // With only a handful of matches, a reshuffle can't bring anything new; say so instead of looking stuck.
+        const same = ids.length > 0 && ids.length === shown.length && ids.every((x) => shown.includes(x));
+        toast(same ? 'These are all the good matches right now. Add groceries or change diets for more.' : 'New recipes found');
+      }
     } catch (e) {
       if (id !== reqId.current) return;
       const err = e instanceof ApiError ? e : null;
@@ -114,6 +134,15 @@ export default function RecipesScreen() {
   const notes = dietNotes(settings.diets);
   const dietLabel = settings.diets.map((d) => DIETS[d].label).join(' + ');
   const configured = isApiConfigured();
+  const offline = useServer((s) => s.reachable === false) && configured;
+  const canHover = useCanHover();
+  const checkServer = useServer((s) => s.check);
+  // Find recipes is disabled while offline, so keep checking: it comes back on its own when the server does.
+  React.useEffect(() => {
+    if (!offline) return;
+    const id = setInterval(() => void checkServer(), 20000);
+    return () => clearInterval(id);
+  }, [offline, checkServer]);
 
   const confirmCook = () => {
     if (!cooking) return;
@@ -127,17 +156,23 @@ export default function RecipesScreen() {
   };
 
   return (
-    <Screen
+    <Screen needsServer
       scrollRef={scrollRef}
       title="Recipes from the brink"
       description="Real recipes from TheMealDB, chosen to use what's about to turn. Spoiled and unsafe food is never used."
       actions={
-        <Button className="h-11" onPress={() => void load(settings.diets)} disabled={state.kind === 'loading' || !configured || atRisk.length === 0}>
+        <Button
+          className="h-11"
+          // First search: the best matches. "Find again": a fresh mix of other good ones.
+          onPress={() => void load(settings.diets, 1, state.kind === 'done' ? { fresh: true } : { best: true })}
+          // Offline it could only fail; the banner above says why.
+          disabled={state.kind === 'loading' || !configured || offline || atRisk.length === 0}>
           <Icon as={state.kind === 'done' ? RefreshCw : Sparkles} size={16} className="text-primary-foreground" />
-          <Text>{state.kind === 'done' ? 'Find again' : 'Find Recipes'}</Text>
+          <Text>{state.kind === 'done' ? 'Find again' : 'Find recipes'}</Text>
         </Button>
       }>
       <DietFilter
+        collapsible
         value={settings.diets}
         onChange={(diets) => {
           updateSettings({ diets });
@@ -191,7 +226,11 @@ export default function RecipesScreen() {
             })}
           </View>
           <Text className="text-muted-foreground text-sm">
-            {atRisk.length ? "Tap Find and we'll look for recipes that use these first." : 'Recipes appear here when food in your fridge starts to turn.'}
+            {!atRisk.length
+              ? 'Recipes appear here when food in your fridge starts to turn.'
+              : offline
+                ? 'Recipes come from your Ghost Kitchen server. Once it is back, Find recipes looks for ones that use these first.'
+                : `${canHover ? 'Click' : 'Tap'} Find recipes and we'll look for ones that use these first.`}
           </Text>
         </View>
       ) : state.recipes.length === 0 ? (

@@ -44,7 +44,7 @@ export function planMove(item: Item, to: Zone, now: IsoDate = today()): MovePlan
     return {
       ok: true, to, expires: addDays(now, target), shelfDays: target,
       note: `Freezing pauses spoilage. Best quality for about ${months > 1 ? `${months} months` : `${target} days`}.`,
-      warning: item.category === 'produce' ? 'Fresh produce thaws soft, so it is best for cooking or smoothies.' : undefined,
+      warning: ['vegetable', 'fruit', 'herbs', 'produce'].includes(item.category) ? 'Fresh produce thaws soft, so it is best for cooking or smoothies.' : undefined,
     };
   }
 

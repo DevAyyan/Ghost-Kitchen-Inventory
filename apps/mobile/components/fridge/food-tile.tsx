@@ -11,9 +11,10 @@ import { cn } from '@/lib/utils';
 import * as React from 'react';
 import { Pressable, View } from 'react-native';
 import { FoodHoverDetails } from './food-hover-card';
-import { Cobweb, ExpiringGlow, Flies, Mould, RisingGhost, Yellowing } from './haunt-effects';
+import { RisingGhost } from './ghost';
+import { Cobweb, ExpiringGlow, Flies, Mould, Yellowing } from './haunt-effects';
 
-/** Tile width in px (matches `w-16 md:w-20`) and the gap between tiles (`gap-3`), for shelf row maths. */
+/** Base tile width in px (matches `w-16 md:w-20`) and the gap between tiles (`gap-3`), for shelf row maths. */
 export const TILE_GAP = 12;
 export const tileWidth = (isPhone: boolean) => (isPhone ? 64 : 80);
 
@@ -23,6 +24,8 @@ interface FoodTileProps {
   onPress: (id: string) => void;
   /** Desktop browser with a mouse: show a floating summary card on hover (see useCanHover). */
   hoverCard?: boolean;
+  /** Width in px when the shelf stretches tiles to fill its row; the base width otherwise. */
+  width?: number;
 }
 
 /** How long the pointer rests on a tile before its card opens, and lingers after leaving. */
@@ -34,19 +37,19 @@ const HOVER_CLOSE_MS = 100;
  * Stage = border colour + border style + corner icon + days text, plus its decay "costume": yellowing
  * (aging), glow (expiring), mould and flies (rotting), a rising ghost (spoiled), cobwebs (forgotten).
  */
-export const FoodTile = React.memo(function FoodTile({ item, selected, onPress, hoverCard }: FoodTileProps) {
-  if (!hoverCard) return <Tile item={item} selected={selected} onPress={onPress} />;
-  return <HoverableTile item={item} selected={selected} onPress={onPress} />;
+export const FoodTile = React.memo(function FoodTile({ item, selected, onPress, hoverCard, width }: FoodTileProps) {
+  if (!hoverCard) return <Tile item={item} selected={selected} onPress={onPress} width={width} />;
+  return <HoverableTile item={item} selected={selected} onPress={onPress} width={width} />;
 });
 
-function HoverableTile({ item, selected, onPress }: Omit<FoodTileProps, 'hoverCard'>) {
+function HoverableTile({ item, selected, onPress, width }: Omit<FoodTileProps, 'hoverCard'>) {
   // Clicking opens the full details, so the summary gets out of the way and stays hidden until the pointer
   // leaves the tile; the hover card then reports itself closed, which re-arms it for the next hover.
   const [dismissed, setDismissed] = React.useState(false);
   return (
     <HoverCard openDelay={HOVER_OPEN_MS} closeDelay={HOVER_CLOSE_MS} onOpenChange={(open) => !open && setDismissed(false)}>
       <HoverCardTrigger asChild>
-        <Tile item={item} selected={selected} onPress={(id) => { setDismissed(true); onPress(id); }} />
+        <Tile item={item} selected={selected} width={width} onPress={(id) => { setDismissed(true); onPress(id); }} />
       </HoverCardTrigger>
       {!dismissed && (
         <HoverCardContent side="top" className="w-64 p-3" aria-hidden>
@@ -59,7 +62,7 @@ function HoverableTile({ item, selected, onPress }: Omit<FoodTileProps, 'hoverCa
 
 /** Forwards its ref and any trigger props (pointer handlers from the hover card) to the Pressable. */
 const Tile = React.forwardRef<View, Omit<FoodTileProps, 'hoverCard'> & Omit<React.ComponentProps<typeof Pressable>, 'onPress' | 'children'>>(function Tile(
-  { item, selected, onPress, ...triggerProps },
+  { item, selected, onPress, width, ...triggerProps },
   ref
 ) {
   const stage = stageOf(item);
@@ -92,6 +95,7 @@ const Tile = React.forwardRef<View, Omit<FoodTileProps, 'hoverCard'> & Omit<Reac
       accessibilityRole="button"
       accessibilityState={{ selected }}
       accessibilityLabel={label}
+      style={width ? { width } : undefined}
       className={cn(
         'bg-background/80 web:hover:bg-accent relative min-h-24 w-16 justify-center rounded-lg border-2 px-1 py-1 md:w-20',
         'web:focus-visible:ring-2 web:focus-visible:ring-ring web:outline-none',
@@ -109,9 +113,13 @@ const Tile = React.forwardRef<View, Omit<FoodTileProps, 'hoverCard'> & Omit<Reac
           {/* Inside the photo's bottom corner, so it never covers the name, days left or the badges. */}
           {forgotten && <Cobweb className="bottom-0 right-0 h-7 w-7 rotate-180" />}
         </FoodPhoto>
-        <Text numberOfLines={1} className="w-full text-center text-xs font-semibold">
-          {item.name}
-        </Text>
+        {/* Always two lines tall, so every tile on a shelf is the same height. Only names with a space wrap:
+            a single long word ("Strawberries") would otherwise be split mid-word, so it ends in "…" instead. */}
+        <View className="h-7 w-full justify-center">
+          <Text numberOfLines={/\s/.test(item.name.trim()) ? 2 : 1} className="w-full text-center text-xs font-semibold leading-3.5">
+            {item.name}
+          </Text>
+        </View>
         <Text className={cn('text-[11px] tabular-nums', item.expiryConfirmed ? 'text-muted-foreground' : 'text-warning')}>
           {shortRemaining(rem)}
           {item.expiryConfirmed ? '' : ' · est.'}

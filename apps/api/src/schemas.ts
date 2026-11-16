@@ -1,10 +1,13 @@
 import { z } from 'zod';
 
+/** `produce` (mixed fruit and veg) predates vegetable, fruit and herbs; kept for salad kits and older data. */
 export const CATEGORIES = [
-  'produce', 'dairy', 'meat', 'fish', 'eggs', 'leftovers',
+  'vegetable', 'fruit', 'herbs', 'produce', 'dairy', 'meat', 'fish', 'eggs', 'leftovers',
   'bakery', 'dry', 'frozen', 'condiment', 'drink', 'other',
 ] as const;
 export const Category = z.enum(CATEGORIES);
+/** Prompt line steering the model to the specific produce types (the app picks an icon from them). */
+export const CATEGORY_RULE = '- For fresh produce, category is vegetable, fruit or herbs. Use produce only for mixed packs such as salad kits or stir-fry mixes.';
 export type Category = z.infer<typeof Category>;
 
 export const Zone = z.enum(['freezer', 'fridge', 'pantry']);

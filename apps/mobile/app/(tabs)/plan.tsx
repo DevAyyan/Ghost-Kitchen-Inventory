@@ -99,11 +99,13 @@ export default function PlanScreen() {
       ))}
 
       <View className={cn('gap-4', !isPhone && 'flex-row items-start')}>
-        <Card className="flex-1 gap-2 py-4">
+        {/* flex-1 only side by side: in the phone's column it would force both cards to the same height. */}
+        <Card className={cn('gap-2 py-4', !isPhone && 'flex-1')}>
           <CardHeader className="px-4"><CardTitle role="heading" aria-level={2}>This week</CardTitle></CardHeader>
           <CardContent className="gap-1 px-4">
             {upcoming.length === 0 && (
               <EmptyState
+                inCard
                 icon={ChefHat}
                 title="No meals planned"
                 description="Plan a recipe from the Recipes tab, or add your own meal. We'll flag food that turns before you get to it."
@@ -127,7 +129,7 @@ export default function PlanScreen() {
           </CardContent>
         </Card>
 
-        <ShoppingCard items={items} shopping={shopping} plan={plan} events={events} />
+        <ShoppingCard items={items} shopping={shopping} plan={plan} events={events} className={isPhone ? undefined : 'flex-1'} />
       </View>
 
       {household && (

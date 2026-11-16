@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Text } from '@/components/ui/text';
 import { currencyInfo } from '@/lib/currency/catalog';
-import { CATEGORIES } from '@/lib/domain/catalog';
+import { CATEGORIES, CATEGORY_LABEL } from '@/lib/domain/catalog';
 import { LOW_CONFIDENCE, type DraftLine, needsExpiry, parseQty, reestimate, withInfo } from '@/lib/domain/draft';
 import { UNITS, UNIT_LABEL, isUnit } from '@/lib/domain/units';
 import { EXPIRY_SOURCE_LABEL } from '@/lib/domain/expiry';
@@ -21,8 +21,6 @@ import { cn } from '@/lib/utils';
 import { Camera, Trash2 } from 'lucide-react-native';
 import * as React from 'react';
 import { Pressable, View } from 'react-native';
-
-const label = (c: string) => c[0].toUpperCase() + c.slice(1);
 
 /** One editable receipt line: photo, name, qty, price, category and its expiry date to confirm. */
 export const ReviewLine = React.memo(function ReviewLine({
@@ -132,22 +130,27 @@ export const ReviewLine = React.memo(function ReviewLine({
           />
         </View>
         <Select
-          value={{ value: line.category, label: label(line.category) }}
+          value={{ value: line.category, label: CATEGORY_LABEL[line.category] }}
           onValueChange={(o) => o && onCategory(o.value as DraftLine['category'])}>
-          <SelectTrigger className="h-11 w-36" accessibilityLabel={`Category of ${name}`}>
-            <SelectValue placeholder="Category" />
+          <SelectTrigger className="h-11 w-36" accessibilityLabel={`Type of ${name}`}>
+            <SelectValue placeholder="Type" />
           </SelectTrigger>
           <SelectContent className="w-40">
             {CATEGORIES.map((c) => (
-              <SelectItem key={c} value={c} label={label(c)} />
+              <SelectItem key={c} value={c} label={CATEGORY_LABEL[c]} />
             ))}
           </SelectContent>
         </Select>
-        <Text
-          accessibilityLabel={line.manual ? 'Entered manually' : `${conf}% reading confidence`}
-          className={cn('w-12 text-center text-xs font-bold tabular-nums', conf >= 85 ? 'text-stage-fresh' : conf >= 70 ? 'text-stage-aging' : 'text-warning')}>
-          {line.manual ? '—' : `${conf}%`}
-        </Text>
+        {/* A typed row has no reading confidence; the empty slot keeps columns lined up on wide screens. */}
+        {line.manual ? (
+          <View aria-hidden className="w-12" />
+        ) : (
+          <Text
+            accessibilityLabel={`${conf}% reading confidence`}
+            className={cn('w-12 text-center text-xs font-bold tabular-nums', conf >= 85 ? 'text-stage-fresh' : conf >= 70 ? 'text-stage-aging' : 'text-warning')}>
+            {`${conf}%`}
+          </Text>
+        )}
         <Button variant="ghost" size="icon" className="h-11 w-11" onPress={() => remove(line.id)} accessibilityLabel={`Remove ${name}`}>
           <Icon as={Trash2} size={16} className="text-muted-foreground" />
         </Button>

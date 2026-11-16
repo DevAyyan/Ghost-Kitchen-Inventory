@@ -57,7 +57,8 @@ export default function LedgerScreen() {
       description={`Last ${LEDGER_DAYS} days · amounts are kept in their original currency`}
       actions={<CurrencyChip code={display} prefix="Show in" showName={false} onPress={() => setPickerOpen(true)} />}>
       <View className="flex-row flex-wrap gap-3">
-        <Kpi label="Spent" m={spend} note={`${receipts.length} receipts`} accent="border-t-primary" />
+        {/* Spending is neither good nor bad, so it gets a neutral bar; the colours mean saved, wasted, at risk. */}
+        <Kpi label="Spent" m={spend} note={`${receipts.length} receipt${receipts.length === 1 ? '' : 's'}`} accent="border-t-muted-foreground/40" />
         <Kpi label="Waste avoided" m={avoided} note="used before it spoiled" accent="border-t-stage-fresh" />
         <Kpi label="Wasted" m={wasted} note="buried in the graveyard" accent="border-t-destructive" />
         <Kpi label="At risk now" m={risk} note="expiring or rotting" accent="border-t-stage-expiring" />
@@ -97,7 +98,7 @@ export default function LedgerScreen() {
         <CardHeader className="px-4"><CardTitle role="heading" aria-level={2}>Receipts</CardTitle></CardHeader>
         <CardContent className="px-4">
           {receipts.length === 0 && (
-            <EmptyState icon={Receipt} title="No receipts yet" description={`Scanned receipts from the last ${LEDGER_DAYS} days will be listed here.`} />
+            <EmptyState inCard icon={Receipt} title="No receipts yet" description={`Scanned receipts from the last ${LEDGER_DAYS} days will be listed here.`} />
           )}
           {receipts.map((r) => (
             <Row key={r.id} left={r.store} middle={shortDate(r.date)} right={formatMoney(r.totalMinor, r.currency)} />
@@ -109,7 +110,7 @@ export default function LedgerScreen() {
         <CardHeader className="px-4"><CardTitle role="heading" aria-level={2}>Activity</CardTitle></CardHeader>
         <CardContent className="px-4">
           {events.length === 0 && (
-            <EmptyState icon={History} title="No activity yet" description="Items you use up or bury will show up here." />
+            <EmptyState inCard icon={History} title="No activity yet" description="Items you use up or bury will show up here." />
           )}
           {events.slice(0, 12).map((e) => (
             <Row

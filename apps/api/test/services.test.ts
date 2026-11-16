@@ -160,6 +160,33 @@ describe('recipe suggestions', () => {
     expect(new Set(ids).size).toBe(25);
     expect(again.recipes.map((r) => r.id)).toEqual(p2.recipes.map((r) => r.id));
   });
+  it('a new seed ("Find again") brings up different recipes, and each seed pages stably', async () => {
+    const many = Array.from({ length: 25 }, (_, i) => meal(`m${i}`, `Spinach dish ${i}`, ['Spinach', i % 2 ? 'Garlic' : 'Butter']));
+    const big = createRecipeService(fakeMealDb(many, { Spinach: many.map((m) => m.id) }), createProductService(new MemoryStore(), productAi({})));
+    const ask = (seed: number, page = 1) => big.suggest({ items, diets: [], limit: 10, page, seed, useAi: true });
+    const first = (await ask(0)).recipes.map((r) => r.id);
+    const again = (await ask(7)).recipes.map((r) => r.id);
+    expect(again).not.toEqual(first);
+    expect((await ask(7)).recipes.map((r) => r.id)).toEqual(again);
+    const all = [1, 2, 3].map(async (p) => (await ask(7, p)).recipes.map((r) => r.id));
+    expect(new Set((await Promise.all(all)).flat()).size).toBe(25);
+  });
+  it('"Find again" puts recipes already seen last: page 1 is all new while unseen ones remain', async () => {
+    const many = Array.from({ length: 25 }, (_, i) => meal(`m${i}`, `Spinach dish ${i}`, ['Spinach', i % 2 ? 'Garlic' : 'Butter']));
+    const big = createRecipeService(fakeMealDb(many, { Spinach: many.map((m) => m.id) }), createProductService(new MemoryStore(), productAi({})));
+    const first = await big.suggest({ items, diets: [], limit: 10, useAi: true });
+    const seen = first.recipes.map((r) => r.id);
+    const again = await big.suggest({ items, diets: [], limit: 10, seed: 3, seen, useAi: true });
+    expect(again.recipes.every((r) => !seen.includes(r.id))).toBe(true);
+    expect(again.page.total).toBe(25);
+    const last = await big.suggest({ items, diets: [], limit: 10, page: 3, seed: 3, seen, useAi: true });
+    expect(last.recipes.map((r) => r.id).every((id) => seen.includes(id))).toBe(true);
+  });
+  it('a seed never lets a recipe that rescues nothing in, nor outranks a much better rescue', async () => {
+    const out = await svc().suggest({ items: [{ id: 'z', name: 'Chicken', urgency: 4 }, { id: 'b', name: 'Spinach', urgency: 2 }, ...items.slice(2)], diets: [], limit: 6, seed: 99, useAi: true });
+    expect(out.recipes.every((r) => r.rescuesItemIds.length > 0)).toBe(true);
+    expect(out.recipes[0]!.rescuesItemIds).toContain('z');
+  });
   it('a page past the end is empty but still reports the real page count', async () => {
     const out = await svc().suggest({ items, diets: [], limit: 10, page: 4, useAi: true });
     expect(out.recipes).toEqual([]);

@@ -6,14 +6,17 @@ import { Separator } from '@/components/ui/separator';
 import { Text } from '@/components/ui/text';
 import { LEDGER_DAYS, useSummarize, withinLedgerWindow } from '@/lib/rates';
 import { daysLeft, isAtRisk, isHaunting, remainingText, stageOf } from '@/lib/domain/expiry';
-import type { Item } from '@/lib/domain/types';
+import type { Item, Stage } from '@/lib/domain/types';
 import { useApp } from '@/lib/store/app-store';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'expo-router';
 import { Sparkles } from 'lucide-react-native';
 import { Pressable, ScrollView, View } from 'react-native';
 
-/** Desktop side panel listing what needs attention, plus 30-day money summary. */
+/** Worst first: what's already gone, then what's going. */
+const GROUPS: Stage[] = ['spoiled', 'rotting', 'expiring'];
+
+/** Desktop side panel listing what needs attention, grouped by stage, plus 30-day money summary. */
 export function HauntPanel({ items, onSelect }: { items: Item[]; onSelect: (id: string) => void }) {
   const router = useRouter();
   const events = useApp((s) => s.events).filter((e) => withinLedgerWindow(e.date));
@@ -29,31 +32,39 @@ export function HauntPanel({ items, onSelect }: { items: Item[]; onSelect: (id: 
       <Text className="text-muted-foreground text-sm">
         {risky.length} items need attention · {atRisk.text} at risk
       </Text>
-      <View role="list" className="gap-2">
-        {risky.length === 0 && <Text className="text-muted-foreground text-sm">Nothing haunting. Nice.</Text>}
-        {risky.map((i) => {
-          const st = stageOf(i);
-          const s = STAGE_STYLE[st];
-          return (
-            <Pressable
-              key={i.id}
-              role="listitem"
-              onPress={() => onSelect(i.id)}
-              accessibilityRole="button"
-              accessibilityLabel={`${i.name}, ${s.label}, ${remainingText(daysLeft(i))}`}
-              className={cn('border-border bg-card web:hover:bg-accent min-h-11 flex-row items-center gap-3 rounded-md border border-l-4 px-3 py-2', s.border)}>
-              <FoodPhoto photoUri={i.photoUri} category={i.category} stage={st} size="sm" />
-              <View className="flex-1">
-                <Text className="text-sm font-medium">{i.name}</Text>
-                <View className="flex-row items-center gap-1">
-                  <Icon as={s.icon} size={12} className={s.text} />
-                  <Text className="text-muted-foreground text-xs">{s.label} · {remainingText(daysLeft(i))}</Text>
-                </View>
-              </View>
-            </Pressable>
-          );
-        })}
-      </View>
+      {risky.length === 0 && <Text className="text-muted-foreground text-sm">Nothing haunting. Nice.</Text>}
+      {/* Grouped worst first. The stage colour is on the group's icon, so the rows themselves stay quiet. */}
+      {GROUPS.map((stage) => {
+        const group = risky.filter((i) => stageOf(i) === stage);
+        if (group.length === 0) return null;
+        const s = STAGE_STYLE[stage];
+        return (
+          <View key={stage} className="gap-1">
+            <View className="flex-row items-center gap-1.5 pt-1">
+              <Icon as={s.icon} size={14} className={s.text} />
+              <Text role="heading" aria-level={3} className="text-sm font-semibold">{s.label}</Text>
+              <Text className="text-muted-foreground text-sm tabular-nums">{group.length}</Text>
+            </View>
+            <View role="list">
+              {group.map((i) => (
+                <Pressable
+                  key={i.id}
+                  role="listitem"
+                  onPress={() => onSelect(i.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${i.name}, ${s.label}, ${remainingText(daysLeft(i))}`}
+                  className="web:hover:bg-accent active:bg-accent min-h-11 flex-row items-center gap-3 rounded-md px-2 py-1.5 web:outline-none web:focus-visible:ring-2 web:focus-visible:ring-ring">
+                  <FoodPhoto photoUri={i.photoUri} category={i.category} stage={stage} size="sm" />
+                  <View className="flex-1">
+                    <Text className="text-sm font-medium">{i.name}</Text>
+                    <Text className="text-muted-foreground text-xs">{remainingText(daysLeft(i))}</Text>
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        );
+      })}
       <Button onPress={() => router.navigate({ pathname: '/recipes', params: { summon: '1' } })}>
         <Icon as={Sparkles} size={16} className="text-primary-foreground" />
         <Text>Summon rescue recipes</Text>

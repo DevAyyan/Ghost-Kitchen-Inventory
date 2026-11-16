@@ -1,7 +1,7 @@
 import { AiError, type Gemini } from './gemini.js';
 import type { Ocr, OcrLine } from './ocr.js';
 import { parseWithRules } from './receipt-rules.js';
-import { ReceiptExtraction, type Category, type Unit } from './schemas.js';
+import { CATEGORY_RULE, ReceiptExtraction, type Category, type Unit } from './schemas.js';
 
 export interface ScanLine {
   sourceLine: number; raw: string; name: string; quantity: number; unit: Unit; price: number;
@@ -36,6 +36,7 @@ Rules:
 - quantity and unit say how much was bought. Read it from the line: "1KG" is 1 kg, "250G" is 250 g, "1LTR" is 1 l, "500ML" is 500 ml, "12PC" or "1 DOZEN" is 12 pcs, "2@1.25" or "2 x" is 2 pcs. Weighed produce such as "0.734 kg @ 2.99/kg" is 0.734 kg. Otherwise use 1 pcs. Pack sizes in other units (oz, lb) should be converted: 1 lb is 0.454 kg, 1 oz is 28 g, 1 fl oz is 30 ml.
 - name is the plain generic English product name, without brand, size, weight or pack count: "Chicken breast", "Milk", "Eggs", "Tomatoes", "Greek yogurt". Expand abbreviations (CHKN BRST becomes Chicken breast) and translate other languages (Roman Urdu DOODH becomes Milk). Keep words that change what the food is ("Raw shrimp" -> "Shrimp" is fine, but keep "Ground beef", "Leftover rice").
 - category is the best fit from the allowed list. isFood is false for bags, deposits, household goods and discounts.
+${CATEGORY_RULE}
 - sourceLine is the number in square brackets at the start of the OCR line where the item appears.
 - currency: give the ISO 4217 code only when there is real evidence (a code, an unambiguous symbol, the country or city, tax names such as GST, VAT or MwSt, a phone prefix). If only a shared symbol such as $ or kr appears, set code to null and report the symbol. Lower the confidence when unsure and list the evidence.
 - date as YYYY-MM-DD only if clearly printed. Read ambiguous numeric dates in the convention of the receipt's country: month-first (MM/DD/YYYY) for the United States, day-first for most other countries.

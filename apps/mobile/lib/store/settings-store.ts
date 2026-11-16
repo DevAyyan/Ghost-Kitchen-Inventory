@@ -1,5 +1,7 @@
 import { isKnownCurrency } from '@/lib/currency/catalog';
+import { ZONE_ORDER } from '@/lib/domain/catalog';
 import { DIETS, type Diet } from '@/lib/domain/diets';
+import type { Zone } from '@/lib/domain/types';
 import { deviceCurrency } from '@/lib/locale';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
@@ -28,7 +30,16 @@ export interface Settings {
   notifyWeekly: boolean;
   /** Start (Monday) of the last weekly summary the user dismissed on the fridge screen. */
   weeklySeen: string;
+  /** Storage doors the user has shut on the fridge screen. Empty (all open) on first use. */
+  doorsClosed: Zone[];
+  /** Door sounds and the small vibration that goes with them. */
+  soundEffects: boolean;
+  /** Doors opened by hand, up to DOOR_HINT_OPENS: the "Tap to open" hint goes once it's been learned. */
+  doorOpens: number;
 }
+
+/** After this many opens the doors stop saying "Tap to open". */
+export const DOOR_HINT_OPENS = 3;
 
 interface SettingsState {
   settings: Settings;
@@ -44,6 +55,9 @@ export function defaultSettings(): Settings {
   return {
     defaultCurrency: cur, displayCurrency: cur, diets: [], reduceMotion: false,
     tesseractOnly: false, aiNoticeSeen: false, itemPhotoNoticeSeen: false, apiUrl: '', apiToken: '', notifyDigest: false, notifyHour: 17, notifyWeekly: false, weeklySeen: '',
+    doorsClosed: [],
+    soundEffects: true,
+    doorOpens: 0,
   };
 }
 
@@ -74,6 +88,9 @@ export function sanitizeSettings(raw: unknown): Settings {
     notifyWeekly: bool(r.notifyWeekly, d.notifyWeekly),
     weeklySeen: typeof r.weeklySeen === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(r.weeklySeen) ? r.weeklySeen : '',
     notifyHour: typeof r.notifyHour === 'number' && Number.isInteger(r.notifyHour) && r.notifyHour >= 0 && r.notifyHour <= 23 ? r.notifyHour : d.notifyHour,
+    doorsClosed: Array.isArray(r.doorsClosed) ? ZONE_ORDER.filter((z) => (r.doorsClosed as unknown[]).includes(z)) : d.doorsClosed,
+    soundEffects: bool(r.soundEffects, d.soundEffects),
+    doorOpens: typeof r.doorOpens === 'number' && Number.isInteger(r.doorOpens) && r.doorOpens >= 0 ? Math.min(r.doorOpens, DOOR_HINT_OPENS) : d.doorOpens,
   };
 }
 
@@ -100,7 +117,7 @@ export const useSettings = create<SettingsState>()(
     {
       name: SETTINGS_KEY,
       // Continues the old blob's numbering, so carried-over settings run the migrations below.
-      version: 6,
+      version: 8,
       storage: createJSONStorage(() => safeStorage('settings', { key: LEGACY_KEY, extract: legacySettings })),
       partialize: (s) => ({ settings: s.settings }),
       migrate: (persisted, version) => {
@@ -110,6 +127,10 @@ export const useSettings = create<SettingsState>()(
           const { vegetarian, ...rest } = s.settings;
           s.settings = { ...rest, diets: Array.isArray(rest.diets) ? rest.diets : vegetarian ? ['vegetarian'] : [] };
         }
+        // v6 had no storage doors: start with every door open, like the fridge looked before.
+        if (version < 7 && s.settings) s.settings = { ...s.settings, doorsClosed: [] };
+        // v7 had no door sounds: on by default, like a real fridge.
+        if (version < 8 && s.settings) s.settings = { ...s.settings, soundEffects: true };
         return s as unknown as SettingsState;
       },
       merge: (persisted, current) => ({

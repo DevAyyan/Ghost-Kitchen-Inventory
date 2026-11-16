@@ -17,30 +17,38 @@ const EPITAPHS = [
   'It had so much left to give.', 'Rest in pieces.', 'Forever fresh in our hearts.', 'Eaten by no one.',
 ];
 
-/** Literal class names per size so NativeWind can find them. Bigger stone = more money lost. */
+/** Literal class names per size so NativeWind can find them. Wider stone = more money lost. */
 const SIZE = {
-  sm: { stone: 'w-32 pt-5', mound: 'w-36' },
-  md: { stone: 'w-36 pt-9', mound: 'w-40' },
-  lg: { stone: 'w-40 pt-14', mound: 'w-44' },
+  sm: { stone: 'w-32', mound: 'w-36' },
+  md: { stone: 'w-36', mound: 'w-40' },
+  lg: { stone: 'w-40', mound: 'w-44' },
 } as const;
+
+/**
+ * Headroom above the engraving, in px, for the cheapest and the costliest grave. Height follows the money
+ * lost in proportion (not in three steps), so "the bigger the stone, the more it cost" reads at a glance.
+ */
+const HEADROOM = { min: 12, max: 96 };
 
 /** A moonlit plot: one tombstone per item thrown away, newest first. */
 export function GraveyardScene({ graves }: { graves: ItemEvent[] }) {
   const max = Math.max(0, ...graves.map((g) => g.minor));
   return (
-    <Gradient colors={MATERIALS.night} className="border-border rounded-lg border">
+    // Taller on wide screens, with the stones standing on the ground at the bottom of the plot.
+    <Gradient colors={MATERIALS.night} className="border-border justify-end rounded-lg border md:min-h-96">
       <Moon />
-      <View role="list" className="flex-row flex-wrap items-end justify-center gap-x-4 gap-y-6 px-3 pb-4 pt-16">
+      <View role="list" className="flex-row flex-wrap items-end justify-center gap-x-4 gap-y-6 px-3 pt-16">
         {graves.map((g) => (
-          <Tombstone key={g.id} grave={g} size={stoneSize(g.minor, max)} />
+          <Tombstone key={g.id} grave={g} size={stoneSize(g.minor, max)} share={max > 0 ? g.minor / max : 0} />
         ))}
       </View>
+      <Gradient colors={MATERIALS.earth} className="h-4" aria-hidden importantForAccessibility="no-hide-descendants" />
       <Fog />
     </Gradient>
   );
 }
 
-function Tombstone({ grave: g, size }: { grave: ItemEvent; size: 'sm' | 'md' | 'lg' }) {
+function Tombstone({ grave: g, size, share }: { grave: ItemEvent; size: 'sm' | 'md' | 'lg'; share: number }) {
   // Stable per grave, so stones don't reshuffle between renders: shape, lean and epitaph.
   const look = React.useMemo(() => {
     const rand = seeded(g.id);
@@ -63,7 +71,7 @@ function Tombstone({ grave: g, size }: { grave: ItemEvent; size: 'sm' | 'md' | '
         <Gradient
           colors={MATERIALS.stone}
           className={cn('items-center gap-1 border-2 px-3 pb-3', s.stone, look.arch ? 'rounded-t-full' : 'rounded-t-lg')}
-          style={{ borderColor: MATERIALS.stoneEdge }}>
+          style={{ borderColor: MATERIALS.stoneEdge, paddingTop: Math.round(HEADROOM.min + share * (HEADROOM.max - HEADROOM.min)) }}>
           <Text className="font-display text-sm tracking-widest" style={{ color: MATERIALS.stoneText }}>
             R.I.P.
           </Text>
@@ -111,8 +119,8 @@ function Fog() {
       importantForAccessibility="no-hide-descendants"
       pointerEvents="none"
       style={style}
-      className="absolute -left-12 -right-12 bottom-0 h-16">
-      <Gradient colors={MATERIALS.fog} horizontal className="h-full w-full" />
+      className="absolute -left-12 -right-12 bottom-0 h-24">
+      <Gradient colors={MATERIALS.fog} className="h-full w-full" />
     </Animated.View>
   );
 }

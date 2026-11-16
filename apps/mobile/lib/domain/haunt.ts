@@ -1,4 +1,6 @@
+import { STAGE_META, STAGE_ORDER } from './catalog';
 import { daysBetween, today } from './dates';
+import { stageOf } from './expiry';
 import type { IsoDate, Item, Stage } from './types';
 
 /**
@@ -63,4 +65,35 @@ export function stoneSize(minor: number, maxMinor: number): 'sm' | 'md' | 'lg' {
   if (maxMinor <= 0) return 'sm';
   const r = minor / maxMinor;
   return r >= 0.66 ? 'lg' : r >= 0.33 ? 'md' : 'sm';
+}
+
+/**
+ * What a closed door shows about the food behind it: a magnet per stage, ember light at the seams when
+ * something is expiring, a ghost in the gap when something has spoiled, cobwebs when something is forgotten.
+ */
+export interface DoorSignals {
+  counts: Record<Stage, number>;
+  total: number;
+  expiring: boolean;
+  spoiled: boolean;
+  forgotten: number;
+}
+
+export function doorSignals(items: Item[], now: IsoDate = today()): DoorSignals {
+  const counts: Record<Stage, number> = { fresh: 0, aging: 0, expiring: 0, rotting: 0, spoiled: 0 };
+  let forgotten = 0;
+  for (const i of items) {
+    const s = stageOf(i, now);
+    counts[s]++;
+    if (isForgotten(i, s, now)) forgotten++;
+  }
+  return { counts, total: items.length, expiring: counts.expiring > 0, spoiled: counts.spoiled > 0, forgotten };
+}
+
+/** The door's signals in words, most urgent first: "12 items: 2 spoiled, 7 expiring, 3 fresh, 1 forgotten". */
+export function doorSummary(s: DoorSignals): string {
+  if (s.total === 0) return 'Empty';
+  const parts = STAGE_ORDER.filter((st) => s.counts[st] > 0).map((st) => `${s.counts[st]} ${STAGE_META[st].label.toLowerCase()}`);
+  if (s.forgotten > 0) parts.push(`${s.forgotten} forgotten`);
+  return `${s.total} item${s.total === 1 ? '' : 's'}: ${parts.join(', ')}`;
 }

@@ -64,7 +64,20 @@ export const MATERIALS = {
   stoneEdge: 'hsl(222, 12%, 18%)',
   stoneText: 'hsl(220, 14%, 90%)',
   earth: ['hsl(24, 22%, 16%)', 'hsl(24, 20%, 9%)'] as Stops,
-  fog: ['hsla(220, 30%, 85%, 0)', 'hsla(220, 30%, 85%, 0.10)', 'hsla(220, 30%, 85%, 0)'] as Stops,
+  /** Mist rising off the ground: clear at the top so it has no hard edge across the stones. */
+  fog: ['hsla(220, 30%, 85%, 0)', 'hsla(220, 30%, 85%, 0.05)', 'hsla(220, 30%, 85%, 0.12)'] as Stops,
+
+  // Storage doors (fridge screen, closed state).
+  doorGap: 'hsl(220, 20%, 4%)',
+  /** Light from expiring food: the expiring stage hue, so it stays inside the freshness colours. Dim over the
+   *  near-black gap so it reads as a glow through a crack, not an orange stripe painted on. */
+  ember: 'hsla(28, 92%, 52%, 0.6)',
+  emberSpill: ['hsla(28, 95%, 60%, 0)', 'hsla(28, 95%, 60%, 0.32)'] as Stops,
+  engraveOnSteel: 'hsl(220, 16%, 13%)',
+  engraveOnWood: 'hsl(36, 40%, 86%)',
+  steelBrush: 'hsla(0, 0%, 100%, 0.08)',
+  panelLine: 'hsla(0, 0%, 0%, 0.22)',
+  woodPanel: 'hsla(30, 40%, 60%, 0.10)',
 } as const;
 
 export const NAV_THEME: Theme = {

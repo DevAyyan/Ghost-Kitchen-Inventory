@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { AiError, type Gemini } from './gemini.js';
-import { type Category, ProductInfo, type Zone } from './schemas.js';
+import { type Category, CATEGORY_RULE, ProductInfo, type Zone } from './schemas.js';
 import type { Store } from './store.js';
 
 /** Stable cache key: lowercase, no accents or punctuation, single spaces. */
@@ -41,6 +41,7 @@ Rules:
 - shelfLifeDays are days of safe, good-quality storage after purchase, per location. Be conservative, in line with USDA FoodKeeper and similar food-safety guidance.
 - Use null for a location where the product should not be kept (raw meat at room temperature, eggs in the freezer in their shells, ice cream in the fridge).
 - For the freezer, give days of good quality; frozen food stays safe for longer.
+${CATEGORY_RULE}
 - Names may be abbreviated, misspelled or in another language. Interpret them and return the canonical English name.
 - tags: only those that apply to the product itself. meat = beef, chicken, lamb and other non-pork meat; pork = pork, bacon, ham, lard, gelatin; fish; shellfish = shrimp, crab, mussels and similar; dairy; egg; gluten = wheat, barley, rye products; nuts = tree nuts and peanuts; alcohol; highCarb = bread, pasta, rice, potatoes and sugary foods.
 - Return exactly one entry per input and copy "input" unchanged.

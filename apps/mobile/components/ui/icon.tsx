@@ -3,6 +3,7 @@ import { cn } from '@/lib/utils';
 import type { LucideIcon, LucideProps } from 'lucide-react-native';
 import { cssInterop } from 'nativewind';
 import * as React from 'react';
+import { Platform } from 'react-native';
 
 type IconProps = LucideProps & {
   as: LucideIcon;
@@ -42,6 +43,10 @@ cssInterop(IconImpl, {
  * @param {number} size - Icon size (defaults to 14).
  * @param {...LucideProps} ...props - Additional Lucide icon props passed to the "as" icon.
  */
+/** Native-only ways to hide from screen readers. On web, aria-hidden does it and these would reach the <svg>. */
+const NATIVE_HIDDEN =
+  Platform.OS === 'web' ? {} : ({ accessibilityElementsHidden: true, importantForAccessibility: 'no-hide-descendants' } as const);
+
 function Icon({ as: IconComponent, className, size = 14, ...props }: IconProps) {
   const textClass = React.useContext(TextClassContext);
   return (
@@ -52,8 +57,7 @@ function Icon({ as: IconComponent, className, size = 14, ...props }: IconProps) 
       // Icons are decorative: every icon sits next to text or inside a control with its own label,
       // so screen readers skip them instead of announcing an unnamed graphic.
       aria-hidden
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
+      {...NATIVE_HIDDEN}
       {...props}
     />
   );

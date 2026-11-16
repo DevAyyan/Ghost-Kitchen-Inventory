@@ -16,9 +16,19 @@ export const SuggestRequest = z.object({
   limit: z.number().int().min(1).max(10).default(10),
   /** 1-based page of the ranked list. Pages are stable for the same fridge and diets. */
   page: z.number().int().min(1).max(20).default(1),
+  /**
+   * 0 (default) is the plain best-first ranking. "Find again" sends a new seed, which reshuffles close
+   * calls so different good recipes come up. Pages stay stable within one seed.
+   */
+  seed: z.number().int().min(0).max(2_147_483_647).default(0),
+  /**
+   * Recipes the user has already been shown ("Find again"). They go to the back of the ranking rather
+   * than disappearing, so the count and pages stay honest and they come round again when nothing is left.
+   */
+  seen: z.array(z.string().min(1).max(32)).max(60).default([]),
   useAi: z.boolean().default(true),
 });
-export type SuggestRequest = Omit<z.infer<typeof SuggestRequest>, 'page'> & { page?: number };
+export type SuggestRequest = Omit<z.infer<typeof SuggestRequest>, 'page' | 'seed' | 'seen'> & { page?: number; seed?: number; seen?: string[] };
 
 export interface RecipeIngredient {
   name: string; measure: string; staple: boolean; inStock: boolean;
@@ -52,12 +62,23 @@ const SEEDS = 6;
  */
 const POOL = 60;
 
+/** A stable number in [0, 1) for one meal under one seed (FNV-1a), so a seed always ranks the same way. */
+function shakeOf(seed: number, id: string): number {
+  let h = 2166136261 ^ seed;
+  for (const c of id) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
+  h = Math.imul(h ^ (h >>> 15), 2246822507);
+  h ^= h >>> 13;
+  return (h >>> 0) / 4294967296;
+}
+
 export function createRecipeService(mealdb: MealDb, products: ProductService) {
   return {
     async suggest(req: SuggestRequest): Promise<SuggestResult> {
       const warnings: string[] = [];
       const weight = (u: number) => u * u;
       const pageNo = req.page ?? 1;
+      const shake = (id: string) => (req.seed ? shakeOf(req.seed, id) : 0);
+      const seen = new Set(req.seen ?? []);
       const empty = (total = 0) => ({ number: pageNo, size: req.limit, total, pages: Math.ceil(total / req.limit) });
       const seedsWanted = [...req.items].filter((i) => i.urgency >= 2).sort((a, b) => b.urgency - a.urgency).slice(0, SEEDS);
       if (seedsWanted.length === 0) {
@@ -84,7 +105,12 @@ export function createRecipeService(mealdb: MealDb, products: ProductService) {
         for (const meals of await Promise.all(mealNames.map((n) => mealdb.byIngredient(n)))) meals.forEach((m) => found.add(m.id));
         for (const id of found) hits.set(id, (hits.get(id) ?? 0) + weight(item.urgency));
       }));
-      const ids = [...hits.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, POOL).map(([id]) => id);
+      // A non-zero seed also changes which meals make the pool when there are more than POOL of them.
+      const ids = [...hits.entries()]
+        .map(([id, w]) => [id, w + shake(id) * 6] as const)
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .slice(0, POOL)
+        .map(([id]) => id);
       const details = (await Promise.all(ids.map((id) => mealdb.detail(id).catch(() => null)))).filter((m): m is MealDetail => !!m);
 
       // 3. Diets: every non-staple ingredient must be known and clear of excluded tags. Unknown means no.
@@ -132,7 +158,13 @@ export function createRecipeService(mealdb: MealDb, products: ProductService) {
         let best: Recipe | null = null;
         for (const r of scored) {
           if (picked.includes(r)) continue;
-          r.score = r.rescuesItemIds.reduce((a, id) => a + (covered.has(id) ? 0.3 : 1) * weight(urgency.get(id) ?? 1), 0) - 1.5 * r.missing.length;
+          r.score = r.rescuesItemIds.reduce((a, id) => a + (covered.has(id) ? 0.3 : 1) * weight(urgency.get(id) ?? 1), 0)
+            - 1.5 * r.missing.length
+            // "Find again": a shake worth at most about two missing ingredients. Close calls change
+            // places; a recipe that rescues far more urgent food still wins.
+            + shake(r.id) * 3
+            // Already shown: after every recipe the user hasn't seen yet.
+            - (seen.has(r.id) ? 1000 : 0);
           if (!best || r.score > best.score || (r.score === best.score && r.id < best.id)) best = r;
         }
         if (!best) break;

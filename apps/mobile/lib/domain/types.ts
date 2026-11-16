@@ -6,7 +6,7 @@ export type { Unit };
 export type Stage = 'fresh' | 'aging' | 'expiring' | 'rotting' | 'spoiled';
 
 export type Category =
-  | 'produce' | 'dairy' | 'meat' | 'fish' | 'eggs' | 'leftovers'
+  | 'vegetable' | 'fruit' | 'herbs' | 'produce' | 'dairy' | 'meat' | 'fish' | 'eggs' | 'leftovers'
   | 'bakery' | 'dry' | 'frozen' | 'condiment' | 'drink' | 'other';
 
 /** Storage section. Only the three that change shelf life meaningfully (see catalog.ZONES). */

@@ -2,21 +2,29 @@ import { Text } from '@/components/ui/text';
 import { useLayout } from '@/lib/hooks';
 import { useToast } from '@/lib/store/toast';
 import { cn } from '@/lib/utils';
+import { usePathname } from 'expo-router';
 import { Pressable, View } from 'react-native';
 import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-/** Single toast, announced politely to screen readers. Sits above the bottom nav on phones. */
+/** Height of the fridge screen's floating "Add by photo" button plus its margin (`h-14`, `bottom-4`), plus a gap. */
+const FAB_CLEARANCE = 80;
+
+/**
+ * Single toast, announced politely to screen readers. Sits above the bottom nav on phones, and above the
+ * floating "Add by photo" button on the fridge screen so it never covers it.
+ */
 export function Toaster() {
   const { message, key, hide } = useToast();
   const { isPhone } = useLayout();
   const insets = useSafeAreaInsets();
+  const onFridge = usePathname() === '/';
 
   return (
     <View
       pointerEvents="box-none"
       className="absolute inset-x-0 items-center px-4"
-      style={{ bottom: (isPhone ? 80 : 24) + insets.bottom }}
+      style={{ bottom: (isPhone ? 80 + (onFridge ? FAB_CLEARANCE : 0) : 24) + insets.bottom }}
       accessibilityLiveRegion="polite"
       aria-live="polite">
       {message ? (

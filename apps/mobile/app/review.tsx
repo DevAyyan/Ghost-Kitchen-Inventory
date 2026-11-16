@@ -51,6 +51,8 @@ export default function ReviewScreen() {
   // Old receipts can make items "already expired" on arrival; say so instead of silently stocking spoiled food.
   const pastDate = draft.lines.filter((l) => needsExpiry(l) && daysLeft({ expires: l.expires }) < 0);
   const needsCheck = draft.currencyConfidence < CURRENCY_CHECK_THRESHOLD;
+  /** Typed in by hand: there's no receipt, so don't call it one. */
+  const byHand = draft.source === 'manual';
   const sourceText =
     draft.currencySource === 'user' ? 'Set by you. Amounts were relabeled, not converted.'
     : draft.currencySource === 'default' ? (draft.source === 'manual' ? 'Your default currency.' : 'No currency found on the receipt, so we used your default.')
@@ -59,7 +61,7 @@ export default function ReviewScreen() {
   const setCurrency = (code: string) => {
     const changed = code !== draft.currency;
     patchDraft({ currency: code, currencyConfidence: 1, currencySource: changed || draft.currencySource === 'default' ? 'user' : draft.currencySource, candidates: undefined });
-    toast(changed ? `Receipt relabeled as ${code}. Amounts were not converted.` : `${code} confirmed`);
+    toast(changed ? `${byHand ? 'Prices' : 'Receipt'} relabeled as ${code}. Amounts were not converted.` : `${code} confirmed`);
   };
 
   const confirm = () => {
@@ -77,10 +79,10 @@ export default function ReviewScreen() {
         <Pressable onPress={leave} accessibilityRole="button" accessibilityLabel="Cancel and go back" className="active:bg-accent h-11 w-11 items-center justify-center rounded-md">
           <Icon as={ArrowLeft} size={20} />
         </Pressable>
-        <Text className="font-semibold">{draft.source === 'manual' ? 'Add items' : draft.source === 'photo' ? 'Review item photo' : 'Review receipt'}</Text>
+        {/* No title here: the page heading right below already names the screen. */}
       </View>
 
-      <Screen title={draft.source === 'manual' ? 'Add items' : draft.source === 'photo' ? 'What we saw' : 'Check your haul'} description={`${draft.store} · Nothing is added until you confirm.`}>
+      <Screen needsServer title={draft.source === 'manual' ? 'Add items' : draft.source === 'photo' ? 'What we saw' : 'Check your haul'} description={`${draft.store} · Nothing is added until you confirm.`}>
         {draft.source === 'rules' && (
           <Alert icon={TriangleAlert} iconClassName="text-warning" className="border-warning/60">
             <AlertTitle>Read with basic rules</AlertTitle>
@@ -95,7 +97,7 @@ export default function ReviewScreen() {
 
         <View className="gap-2">
           <Text className="text-muted-foreground text-sm">Currency</Text>
-          <CurrencyChip code={draft.currency} needsCheck={needsCheck} onPress={() => setPickerOpen(true)} prefix="Receipt currency" />
+          <CurrencyChip code={draft.currency} needsCheck={needsCheck} onPress={() => setPickerOpen(true)} prefix={byHand ? 'Prices in' : 'Receipt currency'} />
           <Text className="text-muted-foreground text-xs">{sourceText}</Text>
         </View>
         {needsCheck && (
@@ -120,7 +122,7 @@ export default function ReviewScreen() {
             {totals.itemCount === 0 ? 'Expiry dates' : `${totals.expiryConfirmed} of ${totals.itemCount} expiry dates checked (optional)`}
           </AlertTitle>
           <AlertDescription>
-            You can stock the fridge right now. Dates are estimates from typical shelf life, and unchecked ones stay marked "est." until you confirm them. For anything you want to be sure of, compare with the package, adjust it, and tap "Date is correct".
+            Dates are estimates until you check them against the package. You can stock the fridge now; unchecked dates stay marked "est.".
           </AlertDescription>
           {unconfirmed.length > 1 && (
             <Button variant="outline" className="mb-2 ml-6 mt-2 h-11 self-start" onPress={() => setConfirmAllOpen(true)}>
@@ -147,15 +149,16 @@ export default function ReviewScreen() {
         </Button>
       </Screen>
 
+      {/* Phones: total on its own line, then Cancel and a wide Confirm. Wider: all on one row. */}
       <View className="border-border bg-card flex-row flex-wrap items-center gap-2 border-t px-4 pt-3" style={{ paddingBottom: Math.max(insets.bottom, 12) }}>
-        <View className="min-w-32 flex-1">
+        <View className="w-full md:w-auto md:flex-1">
           <Text className="text-muted-foreground text-xs">Total</Text>
           <Text className="text-lg font-bold tabular-nums">
             {draft.source === 'photo' ? `${totals.itemCount} items` : `${formatMoney(totals.totalMinor, draft.currency)} · ${totals.itemCount} items`}
           </Text>
         </View>
         <Button variant="outline" className="h-11" onPress={leave}><Text>Cancel</Text></Button>
-        <Button className="h-11" onPress={confirm}>
+        <Button className="h-11 flex-1 md:flex-none" onPress={confirm}>
           <Text>Confirm & stock fridge</Text>
         </Button>
       </View>
@@ -184,8 +187,8 @@ export default function ReviewScreen() {
       <CurrencyPicker
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
-        title="Receipt currency"
-        note="Fixes a wrong guess. Amounts are relabeled, not converted."
+        title={byHand ? 'Prices in' : 'Receipt currency'}
+        note={byHand ? 'The currency you paid in. Amounts are relabeled, not converted.' : 'Fixes a wrong guess. Amounts are relabeled, not converted.'}
         value={draft.currency}
         likely={draft.candidates}
         onSelect={setCurrency}

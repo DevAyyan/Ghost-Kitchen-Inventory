@@ -127,7 +127,7 @@ export const api = {
   productInfo: (names: string[], useAi: boolean) =>
     request<{ products: Record<string, ProductInfo | null>; ai: string }>('/v1/products/info', { ...json({ names, useAi }), timeoutMs: 90_000 }),
 
-  suggestRecipes: (body: { items: { id: string; name: string; urgency: number }[]; diets: Diet[]; limit: number; page: number; useAi: boolean }) =>
+  suggestRecipes: (body: { items: { id: string; name: string; urgency: number }[]; diets: Diet[]; limit: number; page: number; seed: number; seen: string[]; useAi: boolean }) =>
     request<SuggestResult>('/v1/recipes/suggest', { ...json(body), timeoutMs: 90_000 }),
 
   createHousehold: (name: string) => request<HouseholdJoin>('/v1/households', { ...json({ name }), timeoutMs: 15_000 }),

@@ -18,7 +18,9 @@ import * as React from 'react';
 import { Pressable, View } from 'react-native';
 
 /** The (shared) shopping list, with suggestions from the meal plan and from food that ran out. */
-export function ShoppingCard({ items, shopping, plan, events }: { items: Item[]; shopping: ShoppingItem[]; plan: PlanEntry[]; events: ItemEvent[] }) {
+export function ShoppingCard({
+  items, shopping, plan, events, className,
+}: { items: Item[]; shopping: ShoppingItem[]; plan: PlanEntry[]; events: ItemEvent[]; className?: string }) {
   const now = today();
   const addShopping = useApp((s) => s.addShopping);
   const toggle = useApp((s) => s.toggleShopping);
@@ -45,7 +47,7 @@ export function ShoppingCard({ items, shopping, plan, events }: { items: Item[];
   };
 
   return (
-    <Card className="flex-1 gap-2 py-4">
+    <Card className={cn('gap-2 py-4', className)}>
       <CardHeader className="px-4"><CardTitle role="heading" aria-level={2}>Shopping list</CardTitle></CardHeader>
       <CardContent className="gap-3 px-4">
         <View className="flex-row flex-wrap gap-2">
@@ -57,7 +59,7 @@ export function ShoppingCard({ items, shopping, plan, events }: { items: Item[];
         </View>
 
         {shopping.length === 0 ? (
-          <EmptyState icon={ShoppingBasket} title="Nothing to buy yet" description="Add things here, or from an item's details when you finish it." />
+          <EmptyState inCard icon={ShoppingBasket} title="Nothing to buy yet" description="Add things here, or from an item's details when you finish it." />
         ) : (
           <View role="list">
             {[...open, ...done].map((l) => <ShoppingRow key={l.id} line={l} have={inStock(l.name, items)} onToggle={() => toggle(l.id)} onRemove={() => remove(l.id)} />)}

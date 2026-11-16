@@ -78,10 +78,21 @@ function QuotaMeter() {
   React.useEffect(() => { void check(); }, [check]);
   const quota = status?.ai.enabled ? { used: status.ai.usedToday, limit: status.ai.limitPerDay } : null;
   const tesseractOnly = useSettings((s) => s.settings.tesseractOnly);
+  const reachable = useServer((s) => s.reachable);
+  // Says what reading receipts will actually use right now, not an internal state.
+  const mode = tesseractOnly
+    ? 'Basic receipt reading (AI turned off in Settings)'
+    : quota
+      ? 'AI receipt reading: requests used today'
+      : reachable === false
+        ? 'Offline: scanning needs your server'
+        : reachable === null
+          ? 'Checking your server…'
+          : 'Basic receipt reading (AI not set up on the server)';
   return (
     <View className="mt-auto gap-2 p-2">
       <Text className="text-muted-foreground text-xs">
-        {tesseractOnly ? 'AI is off' : quota ? 'AI requests today (server)' : 'AI status unknown'}
+        {mode}
       </Text>
       {!tesseractOnly && quota && (
         <>

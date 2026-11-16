@@ -47,11 +47,14 @@ export default function SettingsScreen() {
       <HouseholdSection />
 
       <Section title="Currency">
-        <Row title="Default currency" sub={`Used when a receipt has no clear currency, and for items you add by hand. Set from your device (${deviceLocaleTag()}).`}>
+        <Text className="text-muted-foreground mb-2 text-sm">
+          Every item keeps the currency it was bought in, so changing these never rewrites prices you already have.
+        </Text>
+        <Row title="Default currency" sub={`For new items: receipts with no clear currency, and items you add by hand. Set from your device (${deviceLocaleTag()}).`}>
           <CurrencyChip code={s.defaultCurrency} showName={false} onPress={() => setPicker('defaultCurrency')} prefix="Default" />
         </Row>
         <Separator />
-        <Row title="Display currency" sub="Ledger totals and recipe savings are shown in this. Other currencies are converted with daily reference rates when available.">
+        <Row title="Display currency" sub="Totals (ledger, money at risk, recipe savings) are converted to this with daily rates from your Ghost Kitchen server. While it's offline, totals stay in their original currency.">
           <CurrencyChip code={s.displayCurrency} showName={false} onPress={() => setPicker('displayCurrency')} prefix="Display" />
         </Row>
       </Section>
@@ -75,8 +78,9 @@ export default function SettingsScreen() {
         </Text>
       </Section>
 
-      <Section title="Accessibility">
-        <ToggleRow k="reduceMotion" title="Reduce motion" sub="Stills the glow, flies, rising ghosts, flickering fridge light and graveyard fog. Your system setting is also respected." />
+      <Section title="Sound and motion">
+        <ToggleRow k="soundEffects" title="Sounds and vibration" sub="A short sound and a light tap when you open or close the freezer, fridge or pantry doors." />
+        <ToggleRow k="reduceMotion" title="Reduce motion" sub="Stills the glow, flies, ghosts, flickering fridge light, door swings and graveyard fog. Your system setting is also respected." />
       </Section>
 
       <Section title="Data">

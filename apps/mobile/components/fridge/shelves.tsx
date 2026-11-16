@@ -20,12 +20,18 @@ interface ShelvesProps {
   filtered: boolean;
 }
 
-/** Splits items into rows that fit the measured width, each row standing on its own shelf. */
+/**
+ * Splits items into rows that fit the measured width, each row standing on its own shelf. Tiles then
+ * stretch to share the row's spare width (so names get more room), up to MAX_STRETCH of their base size.
+ */
 export function Shelves({ items, selectedId, onSelect, kind, minShelves, filtered }: ShelvesProps) {
   const { isPhone } = useLayout();
   const canHover = useCanHover();
   const [width, setWidth] = React.useState(0);
-  const perRow = width === 0 ? 4 : Math.max(1, Math.floor((width - ROW_PADDING + TILE_GAP) / (tileWidth(isPhone) + TILE_GAP)));
+  const base = tileWidth(isPhone);
+  const perRow = width === 0 ? 4 : Math.max(1, Math.floor((width - ROW_PADDING + TILE_GAP) / (base + TILE_GAP)));
+  const fill = width === 0 ? base : Math.floor((width - ROW_PADDING - TILE_GAP * (perRow - 1)) / perRow);
+  const tileW = Math.max(base, Math.min(fill, Math.round(base * MAX_STRETCH)));
 
   const rows: Item[][] = [];
   for (let i = 0; i < items.length; i += perRow) rows.push(items.slice(i, i + perRow));
@@ -35,9 +41,9 @@ export function Shelves({ items, selectedId, onSelect, kind, minShelves, filtere
     <View onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
       {rows.map((row, idx) => (
         <View key={idx}>
-          <View className="min-h-28 flex-row items-end gap-3 px-3 pt-4">
+          <View className="min-h-32 flex-row items-end gap-3 px-3 pt-4">
             {row.length ? (
-              row.map((i) => <FoodTile key={i.id} item={i} selected={i.id === selectedId} onPress={onSelect} hoverCard={canHover} />)
+              row.map((i) => <FoodTile key={i.id} item={i} selected={i.id === selectedId} onPress={onSelect} hoverCard={canHover} width={tileW} />)
             ) : idx === 0 ? (
               <Text className="text-muted-foreground self-center pb-4 text-xs italic">
                 {filtered ? 'Nothing matches here' : 'Empty'}
@@ -52,6 +58,10 @@ export function Shelves({ items, selectedId, onSelect, kind, minShelves, filtere
 }
 
 const ROW_PADDING = 24; // px-3 on both sides
+/** Tiles never grow past this multiple of their base width, so a sparse wide shelf doesn't get giant tiles. */
+const MAX_STRETCH = 1.5;
+/** Height of one shelf row (tile + `pt-4` + the shelf board and its shadow), for capping compartments. */
+export const SHELF_ROW_HEIGHT = 148;
 
 /** The board the items stand on, plus the soft shadow it casts on whatever is below. */
 function ShelfSurface({ kind }: { kind: ShelfKind }) {

@@ -17,27 +17,34 @@ interface ScreenProps {
   scroll?: boolean;
   /** Lets a screen scroll itself, e.g. back to the top when the page of results changes. */
   scrollRef?: React.Ref<ScrollView>;
+  /**
+   * The screen's main job needs the server (scanning, review lookups, recipes): spell out what being
+   * offline means here. Elsewhere the top bar's "Offline" pill is enough.
+   */
+  needsServer?: boolean;
 }
 
 /** Page scaffold: one h1 per screen, optional actions, offline banner, max content width on desktop. */
-export function Screen({ title, description, actions, children, fabClearance, scroll = true, scrollRef }: ScreenProps) {
-  const unreachable = useServer((s) => s.reachable === false) && isApiConfigured();
+export function Screen({ title, description, actions, children, fabClearance, scroll = true, scrollRef, needsServer }: ScreenProps) {
+  const unreachable = useServer((s) => s.reachable === false) && isApiConfigured() && !!needsServer;
   const content = (
     <View className="mx-auto w-full max-w-6xl gap-4">
       {unreachable && (
         <View role="status" className="border-warning/60 bg-warning/10 flex-row items-center gap-2 rounded-lg border px-3 py-2">
           <Icon as={WifiOff} size={16} className="text-warning" />
-          <Text className="flex-1 text-sm">Can't reach your Ghost Kitchen server. Your fridge works offline; scanning and recipes need the server.</Text>
+          <Text className="flex-1 text-sm">Can't reach your Ghost Kitchen server, so this needs it back first. Your fridge still works offline.</Text>
         </View>
       )}
-      <View className="flex-row flex-wrap items-end justify-between gap-3">
-        <View className="min-w-56 flex-1 gap-1">
-          <Text role="heading" aria-level={1} className="font-display text-4xl leading-10">
+      {/* Title and actions share a row; the description runs full width under both, so a button never
+          squeezes it into a narrow column. */}
+      <View className="gap-1">
+        <View className="flex-row flex-wrap items-center justify-between gap-3">
+          <Text role="heading" aria-level={1} className="font-display min-w-0 shrink text-4xl leading-10">
             {title}
           </Text>
-          {description ? <Text className="text-muted-foreground text-sm">{description}</Text> : null}
+          {actions ? <View className="flex-row flex-wrap items-center gap-2">{actions}</View> : null}
         </View>
-        {actions ? <View className="flex-row flex-wrap items-center gap-2">{actions}</View> : null}
+        {description ? <Text className="text-muted-foreground max-w-prose text-sm">{description}</Text> : null}
       </View>
       {children}
     </View>

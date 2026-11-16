@@ -7,15 +7,17 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Progress } from '@/components/ui/progress';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Text } from '@/components/ui/text';
 import { formatMoney } from '@/lib/currency/money';
 import { MovePanel } from './move-panel';
 import { UsePanel } from './use-panel';
 import { formatQty } from '@/lib/domain/units';
+import { CATEGORIES, CATEGORY_LABEL } from '@/lib/domain/catalog';
 import { shortDate } from '@/lib/domain/dates';
 import { EXPIRY_SOURCE_LABEL, MAX_SNIFFS, SNIFF_DAYS, daysLeft, isCookable, remainingText, safetyAdvice, sniffCheck, stageOf } from '@/lib/domain/expiry';
-import type { Item } from '@/lib/domain/types';
+import type { Category, Item } from '@/lib/domain/types';
 import { useApp } from '@/lib/store/app-store';
 import { toast } from '@/lib/store/toast';
 import { ListPlus, ShieldAlert, ShieldCheck, Trash2 } from 'lucide-react-native';
@@ -28,6 +30,7 @@ export function ItemDetails({ item, onDone }: { item: Item; onDone: () => void }
   const setExpiry = useApp((s) => s.setExpiry);
   const confirmExpiry = useApp((s) => s.confirmExpiry);
   const setPhoto = useApp((s) => s.setPhoto);
+  const setCategory = useApp((s) => s.setCategory);
   const sniffItem = useApp((s) => s.sniffItem);
   const addShopping = useApp((s) => s.addShopping);
 
@@ -94,7 +97,7 @@ export function ItemDetails({ item, onDone }: { item: Item; onDone: () => void }
       )}
       {!sniff.ok && sniff.reason === 'high-risk' && rem < SNIFF_DAYS && (
         <Text className="text-muted-foreground text-sm">
-          {item.category[0]!.toUpperCase() + item.category.slice(1)} can't be given extra days: it can be unsafe even when it looks and smells fine.
+          {CATEGORY_LABEL[item.category]} can't be given extra days: it can be unsafe even when it looks and smells fine.
         </Text>
       )}
       {!sniff.ok && sniff.reason === 'used-up' && (
@@ -117,6 +120,21 @@ export function ItemDetails({ item, onDone }: { item: Item; onDone: () => void }
           value={item.fraction < 1 ? `${formatQty(item.qty * item.fraction, item.unit)} left of ${formatQty(item.qty, item.unit)}` : formatQty(item.qty, item.unit)}
         />
         <Fact label="Price" value={formatMoney(item.priceMinor, item.currency)} />
+        <View className="flex-row items-center justify-between gap-3">
+          <Text className="text-muted-foreground text-sm">Type</Text>
+          <Select
+            value={{ value: item.category, label: CATEGORY_LABEL[item.category] }}
+            onValueChange={(o) => o && setCategory(item.id, o.value as Category)}>
+            <SelectTrigger className="h-11 w-40" accessibilityLabel={`Type of ${item.name}`} accessibilityHint="Sets the icon shown until you add a photo">
+              <SelectValue placeholder="Type" />
+            </SelectTrigger>
+            <SelectContent className="w-44">
+              {CATEGORIES.map((c) => (
+                <SelectItem key={c} value={c} label={CATEGORY_LABEL[c]} />
+              ))}
+            </SelectContent>
+          </Select>
+        </View>
         <Fact label="Bought" value={shortDate(item.purchased)} />
       </View>
       <Separator />

@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import * as React from 'react';
 import { View } from 'react-native';
 import Animated, {
-  Easing, cancelAnimation, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withSequence, withTiming,
+  Easing, cancelAnimation, useAnimatedStyle, useFrameCallback, useSharedValue, withDelay, withRepeat, withSequence, withTiming,
 } from 'react-native-reanimated';
 import Svg, { Circle, Path } from 'react-native-svg';
 
@@ -16,9 +16,17 @@ import Svg, { Circle, Path } from 'react-native-svg';
  * and all stop moving under reduced motion, falling back to a still frame that still reads.
  */
 
+/** True inside a compartment whose door is shut: nobody can see the effects, so they rest. */
+export const Dormant = React.createContext(false);
+
+/** Motion is allowed (reduced-motion off) and the effect is visible (not behind a closed door). */
+function useAnimate() {
+  return useMotionAllowed() && !React.useContext(Dormant);
+}
+
 /** A value that loops 0 -> 1 -> 0 forever while motion is allowed; stays at `rest` otherwise. */
 export function useLoop(duration: number, delay = 0, rest = 0) {
-  const motion = useMotionAllowed();
+  const motion = useAnimate();
   const v = useSharedValue(rest);
   React.useEffect(() => {
     if (!motion) {
@@ -92,36 +100,22 @@ export function Yellowing() {
   return <View {...decorative} className="absolute inset-0" style={{ backgroundColor: MATERIALS.yellowing }} />;
 }
 
-const GHOST_BODY = 'M12 2C7.6 2 4 5.6 4 10v11l2.7-2 2.6 2 2.7-2 2.7 2 2.6-2L20 21V10c0-4.4-3.6-8-8-8z';
-
-function GhostShape({ size }: { size: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24">
-      <Path d={GHOST_BODY} fill={MATERIALS.ghost} />
-      <Circle cx={9.2} cy={10} r={1.5} fill={MATERIALS.ghostEye} />
-      <Circle cx={14.8} cy={10} r={1.5} fill={MATERIALS.ghostEye} />
-      <Path d="M10.4 14.2c.9.7 2.3.7 3.2 0" stroke={MATERIALS.ghostEye} strokeWidth={1.1} strokeLinecap="round" fill="none" />
-    </Svg>
-  );
-}
-
 /**
- * Spoiled: the food's ghost leaves it, rising out of the top of the tile and fading, then again.
- * Under reduced motion it just hovers above the tile.
+ * Runs `step(dt)` every frame while the effect is visible and motion is allowed; calls `rest()` and
+ * stops otherwise. The physics for ghosts (components/fridge/ghost.tsx) runs on this.
  */
-export function RisingGhost() {
-  const motion = useMotionAllowed();
-  const t = useLoop(1900, 0, 0.45);
-  const style = useAnimatedStyle(() => ({
-    opacity: motion ? (t.value < 0.15 ? t.value / 0.15 : 1 - (t.value - 0.15) / 0.85) * 0.95 : 0.9,
-    transform: [{ translateY: -t.value * 26 }, { translateX: Math.sin(t.value * Math.PI * 2) * 2 }],
-  }));
-  return (
-    // Starts over the photo, so it reads as leaving the food, and floats up past the tile's top edge.
-    <Animated.View {...decorative} style={style} className="absolute left-0 right-0 top-2 z-10 items-center">
-      <GhostShape size={26} />
-    </Animated.View>
-  );
+export function useSimulation(step: (dt: number) => void, rest: () => void) {
+  const animate = useAnimate();
+  const frame = useFrameCallback((f) => {
+    'worklet';
+    // Clamp so a dropped frame or a background tab doesn't fling the ghost off the screen.
+    step(Math.min(0.05, (f.timeSincePreviousFrame ?? 16) / 1000));
+  }, false);
+  React.useEffect(() => {
+    frame.setActive(animate);
+    if (!animate) rest();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [animate]);
 }
 
 /** Forgotten: a cobweb across the tile's top corner. */
@@ -146,7 +140,7 @@ export function Cobweb({ className }: { className?: string }) {
  * with quick drop-outs. Returns an animated opacity style. Still frame under reduced motion: dim.
  */
 export function useFlicker(active: boolean) {
-  const motion = useMotionAllowed();
+  const motion = useAnimate();
   const v = useSharedValue(1);
   React.useEffect(() => {
     cancelAnimation(v);

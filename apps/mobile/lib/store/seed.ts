@@ -11,14 +11,14 @@ import type { Category, Item, ItemEvent, Receipt, Unit, Zone } from '@/lib/domai
  */
 type Row = [string, Category, Zone, number, number, number, boolean?, boolean?];
 const ROWS: Row[] = [
-  ['Spinach', 'produce', 'fridge', 4, 1, 3.49],
-  ['Strawberries', 'produce', 'fridge', 3, 1, 3.99, false, false],
-  ['Avocado', 'produce', 'pantry', 6, 0, 1.25],
-  ['Tomatoes', 'produce', 'pantry', 4, 3, 2.99, true],
-  ['Bell pepper', 'produce', 'fridge', 2, 8, 1.49],
-  ['Mushrooms', 'produce', 'fridge', 5, 1, 3.29, false, false],
-  ['Cucumber', 'produce', 'fridge', 9, -2, 1.19],
-  ['Cilantro', 'produce', 'fridge', 12, -5, 0.99],
+  ['Spinach', 'vegetable', 'fridge', 4, 1, 3.49],
+  ['Strawberries', 'fruit', 'fridge', 3, 1, 3.99, false, false],
+  ['Avocado', 'fruit', 'pantry', 6, 0, 1.25],
+  ['Tomatoes', 'vegetable', 'pantry', 4, 3, 2.99, true],
+  ['Bell pepper', 'vegetable', 'fridge', 2, 8, 1.49],
+  ['Mushrooms', 'vegetable', 'fridge', 5, 1, 3.29, false, false],
+  ['Cucumber', 'vegetable', 'fridge', 9, -2, 1.19],
+  ['Cilantro', 'herbs', 'fridge', 12, -5, 0.99],
   ['Milk', 'dairy', 'fridge', 5, 2, 3.89, true],
   ['Greek yogurt', 'dairy', 'fridge', 6, 8, 4.29, true],
   ['Cheddar', 'dairy', 'fridge', 10, 18, 6.49, true],
@@ -26,9 +26,9 @@ const ROWS: Row[] = [
   ['Chicken breast', 'meat', 'fridge', 1, 1, 7.99],
   ['Ground beef', 'meat', 'fridge', 4, -2, 6.99],
   ['Bread', 'bakery', 'pantry', 4, 2, 3.49, true],
-  ['Onion', 'produce', 'pantry', 10, 20, 0.99, true],
-  ['Garlic', 'produce', 'pantry', 8, 52, 0.79, true],
-  ['Potatoes', 'produce', 'pantry', 6, 24, 3.99, true],
+  ['Onion', 'vegetable', 'pantry', 10, 20, 0.99, true],
+  ['Garlic', 'vegetable', 'pantry', 8, 52, 0.79, true],
+  ['Potatoes', 'vegetable', 'pantry', 6, 24, 3.99, true],
   // Bought weeks ago and never opened: these show the "forgotten" cobwebs.
   ['Rice', 'dry', 'pantry', 30, 335, 2.89, true],
   ['Frozen peas', 'frozen', 'freezer', 24, 156, 2.49, true],
@@ -57,9 +57,9 @@ export function sampleData(currency: string): { items: Item[]; receipts: Receipt
     { id: newId('r'), store: 'Sample receipt', date: addDays(now, -4), currency, totalMinor: toMinor(38.7, currency) },
   ];
   const events: ItemEvent[] = [
-    { id: newId('e'), type: 'used', name: 'Broccoli', category: 'produce', minor: toMinor(2.79, currency), currency, stage: 'expiring', date: addDays(now, -3) },
+    { id: newId('e'), type: 'used', name: 'Broccoli', category: 'vegetable', minor: toMinor(2.79, currency), currency, stage: 'expiring', date: addDays(now, -3) },
     { id: newId('e'), type: 'discarded', name: 'Salmon fillet', category: 'fish', minor: toMinor(8.99, currency), currency, stage: 'spoiled', date: addDays(now, -2), purchased: addDays(now, -6) },
-    { id: newId('e'), type: 'discarded', name: 'Lettuce', category: 'produce', minor: toMinor(2.49, currency), currency, stage: 'spoiled', date: addDays(now, -5), purchased: addDays(now, -14) },
+    { id: newId('e'), type: 'discarded', name: 'Lettuce', category: 'vegetable', minor: toMinor(2.49, currency), currency, stage: 'spoiled', date: addDays(now, -5), purchased: addDays(now, -14) },
     { id: newId('e'), type: 'discarded', name: 'Sourdough', category: 'bakery', minor: toMinor(4.5, currency), currency, stage: 'spoiled', date: addDays(now, -9), purchased: addDays(now, -16) },
   ];
   return { items, receipts, events };

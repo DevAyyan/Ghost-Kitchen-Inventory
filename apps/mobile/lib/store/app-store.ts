@@ -3,7 +3,8 @@ import { daysBetween, today } from '@/lib/domain/dates';
 import { type Draft, parsePrice, parseQty } from '@/lib/domain/draft';
 import { afterSniff, makeItem, newId, stageOf } from '@/lib/domain/expiry';
 import { addToList } from '@/lib/domain/shopping';
-import type { IsoDate, Item, ItemEvent, PlanEntry, Receipt, ShoppingItem, Stage, Zone } from '@/lib/domain/types';
+import { HIGH_RISK_CATEGORIES } from '@/lib/domain/catalog';
+import type { Category, IsoDate, Item, ItemEvent, PlanEntry, Receipt, ShoppingItem, Stage, Zone } from '@/lib/domain/types';
 import { deleteFoodPhoto } from '@/lib/photos';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
@@ -38,6 +39,8 @@ interface AppState {
   setExpiry: (id: string, expires: IsoDate) => void;
   confirmExpiry: (id: string) => void;
   setPhoto: (id: string, photoUri: string | undefined) => void;
+  /** Changes an item's type (its placeholder icon). Dates stay as they are. */
+  setCategory: (id: string, category: Category) => void;
   /** Moves an item to another section with the new expiry the user saw (and maybe confirmed). */
   moveItem: (id: string, to: Zone, expires: IsoDate, shelfDays: number, confirmed: boolean) => void;
   commitDraft: (draft: Draft) => string[];
@@ -139,6 +142,16 @@ export const useApp = create<AppState>()(
           items: s.items.map((i) =>
             i.id === id
               ? { ...i, zone: to, expires, shelfDays, expiryConfirmed: confirmed, expirySource: confirmed ? 'user' : i.life ? 'model' : 'category' }
+              : i
+          ),
+        })),
+
+      setCategory: (id, category) =>
+        set((s) => ({
+          items: s.items.map((i) =>
+            i.id === id
+              // A risk flag that came from the product itself (not its old type) survives the change.
+              ? { ...i, category, highRisk: HIGH_RISK_CATEGORIES.has(category) || (i.highRisk && !HIGH_RISK_CATEGORIES.has(i.category)) }
               : i
           ),
         })),

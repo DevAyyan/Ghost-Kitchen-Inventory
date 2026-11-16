@@ -23,10 +23,18 @@ export const ZONES: Record<Zone, { label: string; temp: string }> = {
   pantry: { label: 'Pantry', temp: 'room temperature' },
 };
 
+/** Every valid type, for validating stored and synced data. Pickers list them in this order. */
 export const CATEGORIES: Category[] = [
-  'produce', 'dairy', 'meat', 'fish', 'eggs', 'leftovers',
+  'vegetable', 'fruit', 'herbs', 'produce', 'dairy', 'meat', 'fish', 'eggs', 'leftovers',
   'bakery', 'dry', 'frozen', 'condiment', 'drink', 'other',
 ];
+
+/** What the user sees when picking an item's type. `produce` predates vegetable/fruit/herbs. */
+export const CATEGORY_LABEL: Record<Category, string> = {
+  vegetable: 'Vegetable', fruit: 'Fruit', herbs: 'Herbs', produce: 'Mixed produce',
+  dairy: 'Dairy', meat: 'Meat', fish: 'Fish', eggs: 'Eggs', leftovers: 'Leftovers',
+  bakery: 'Bakery', dry: 'Dry goods', frozen: 'Frozen', condiment: 'Condiment', drink: 'Drink', other: 'Other',
+};
 
 export type { Life };
 
@@ -42,6 +50,9 @@ export const HIGH_RISK_CATEGORIES = new Set<Category>(['dairy', 'meat', 'fish', 
  * Dates from here are labelled "rough estimate" and, like all estimates, must be confirmed by the user.
  */
 export const CATEGORY_FALLBACK: Record<Category, { home: Zone; life: Life }> = {
+  vegetable: { home: 'fridge', life: { pantry: 2, fridge: 5, freezer: 180 } },
+  fruit: { home: 'fridge', life: { pantry: 2, fridge: 5, freezer: 180 } },
+  herbs: { home: 'fridge', life: { pantry: 1, fridge: 4, freezer: 90 } },
   produce: { home: 'fridge', life: { pantry: 2, fridge: 5, freezer: 180 } },
   dairy: { home: 'fridge', life: { pantry: null, fridge: 5, freezer: 60 } },
   meat: { home: 'fridge', life: { pantry: null, fridge: 1, freezer: 90 } },

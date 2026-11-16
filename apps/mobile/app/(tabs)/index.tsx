@@ -8,7 +8,7 @@ import { HauntPanel } from '@/components/fridge/haunt-panel';
 import { ItemDetails } from '@/components/fridge/item-details';
 import { TonightCard } from '@/components/fridge/tonight-card';
 import { WeekCard } from '@/components/ledger/week-card';
-import { StageKey } from '@/components/fridge/stage-key';
+import { StageKeyPanel, StageKeyToggle } from '@/components/fridge/stage-key';
 import { StageFilter, type StageFilterValue } from '@/components/fridge/stage-filter';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
@@ -31,13 +31,16 @@ const FILTERS = new Set<StageFilterValue>(['all', 'haunting', 'fresh', 'aging', 
 export default function FridgeScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ stage?: string; q?: string; item?: string }>();
-  const { isPhone, hasSidePanel } = useLayout();
+  const { isPhone, hasSidePanel, width } = useLayout();
   const items = useActiveItems();
   const counts = useStageCounts(items);
   const summarize = useSummarize();
   const discardItem = useApp((s) => s.discardItem);
   const loadSampleData = useApp((s) => s.loadSampleData);
   const [buryOpen, setBuryOpen] = React.useState(false);
+  const [keyOpen, setKeyOpen] = React.useState(false);
+  // Matches FridgeCabinet: from here the pantry stands beside the fridge, with room for Tonight under it.
+  const sideBySide = width >= 1024;
 
   const filter = (FILTERS.has(params.stage as StageFilterValue) ? params.stage : 'all') as StageFilterValue;
   const q = params.q ?? '';
@@ -65,9 +68,14 @@ export default function FridgeScreen() {
       description={`${items.length} items · ${counts.expiring} expiring soon · ${atRisk.text} at risk`}
       fabClearance={isPhone}
       actions={
-        <Button variant="outline" className="h-11" onPress={() => router.push({ pathname: '/review', params: { manual: '1' } })}>
+        // Icon-only on phones, so the summary line beside the title doesn't wrap. Still 44 px and labelled.
+        <Button
+          variant="outline"
+          className={isPhone ? 'h-11 w-11 px-0' : 'h-11'}
+          accessibilityLabel="Add item"
+          onPress={() => router.push({ pathname: '/review', params: { manual: '1' } })}>
           <Icon as={Plus} size={16} />
-          <Text>Add item</Text>
+          {!isPhone && <Text>Add item</Text>}
         </Button>
       }>
       <View className="relative">
@@ -83,19 +91,22 @@ export default function FridgeScreen() {
           autoCorrect={false}
         />
       </View>
-      <StageFilter value={filter} onChange={(v) => setParams({ stage: v === 'all' ? undefined : v })} counts={counts} total={items.length} />
-      <StageKey />
+      <StageFilter
+        value={filter}
+        onChange={(v) => setParams({ stage: v === 'all' ? undefined : v })}
+        counts={counts}
+        total={items.length}
+        trailing={<StageKeyToggle open={keyOpen} onToggle={() => setKeyOpen((o) => !o)} />}
+      />
+      {keyOpen && <StageKeyPanel />}
 
+      {/* Decisions that need you sit above the food, so they're never below a tall fridge; summaries follow it. */}
       <AttentionCard
         spoiled={spoiled}
         estimated={estimated}
         onBury={() => setBuryOpen(true)}
         onCheck={() => select(estimated[0].id)}
       />
-
-      <TonightCard items={items} />
-      <WeekCard digest />
-
       {items.length === 0 ? (
         <EmptyState
           icon={Refrigerator}
@@ -110,8 +121,19 @@ export default function FridgeScreen() {
           }
         />
       ) : (
-        <FridgeCabinet items={visible} selectedId={selected?.id ?? null} onSelect={select} filtered={filter !== 'all' || q !== ''} />
+        <FridgeCabinet
+          items={visible}
+          allItems={items}
+          selectedId={selected?.id ?? null}
+          onSelect={select}
+          filtered={filter !== 'all' || q !== ''}
+          filterKey={`${filter}|${q}`}
+          belowPantry={sideBySide ? <TonightCard items={items} /> : undefined}
+        />
       )}
+
+      {!(sideBySide && items.length > 0) && <TonightCard items={items} />}
+      <WeekCard digest />
     </Screen>
   );
 

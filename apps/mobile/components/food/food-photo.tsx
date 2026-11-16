@@ -2,15 +2,15 @@ import { Icon } from '@/components/ui/icon';
 import type { Category, Stage } from '@/lib/domain/types';
 import { cn } from '@/lib/utils';
 import {
-  Beef, Carrot, Croissant, CupSoda, Droplets, Egg, Fish, Milk, Package, Snowflake, Soup, Wheat,
+  Apple, Beef, Carrot, Croissant, CupSoda, Droplets, Egg, Fish, Leaf, Milk, Package, Salad, Snowflake, Soup, Wheat,
   type LucideIcon,
 } from 'lucide-react-native';
 import * as React from 'react';
 import { Image, View } from 'react-native';
 
-/** Neutral line icons used only when the user hasn't photographed an item yet. */
+/** Neutral line icons for the item's type, used only until the user photographs it. */
 export const CATEGORY_ICON: Record<Category, LucideIcon> = {
-  produce: Carrot, dairy: Milk, meat: Beef, fish: Fish, eggs: Egg, leftovers: Soup,
+  vegetable: Carrot, fruit: Apple, herbs: Leaf, produce: Salad, dairy: Milk, meat: Beef, fish: Fish, eggs: Egg, leftovers: Soup,
   bakery: Croissant, dry: Wheat, frozen: Snowflake, condiment: Droplets, drink: CupSoda, other: Package,
 };
 

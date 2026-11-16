@@ -3,8 +3,7 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import type { Stage } from '@/lib/domain/types';
 import { cn } from '@/lib/utils';
-import { ChevronDown, ChevronUp, Flame, Info, Layers, type LucideIcon } from 'lucide-react-native';
-import * as React from 'react';
+import { Flame, Info, Layers, type LucideIcon } from 'lucide-react-native';
 import { Pressable, View } from 'react-native';
 
 /** Plain-language meaning of each stage. Mirrors stageOf() in lib/domain/expiry.ts. Also used by the food hover card. */
@@ -18,34 +17,35 @@ export const STAGE_MEANING: Record<Stage, string> = {
 
 const ORDER: Stage[] = ['fresh', 'aging', 'expiring', 'rotting', 'spoiled'];
 
-/** Collapsible legend for the freshness filter chips. */
-export function StageKey() {
-  const [open, setOpen] = React.useState(false);
+/** Opens and closes the freshness key. An icon button that sits at the end of the filter chips. */
+export function StageKeyToggle({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   return (
-    <View className="gap-2">
-      <Pressable
-        onPress={() => setOpen((o) => !o)}
-        accessibilityRole="button"
-        accessibilityState={{ expanded: open }}
-        accessibilityLabel="What do these filters mean?"
-        className="min-h-11 flex-row items-center gap-1.5 self-start">
-        <Icon as={Info} size={14} className="text-muted-foreground" />
-        <Text className="text-muted-foreground text-sm">What do these mean?</Text>
-        <Icon as={open ? ChevronUp : ChevronDown} size={14} className="text-muted-foreground" />
-      </Pressable>
+    <Pressable
+      onPress={onToggle}
+      accessibilityRole="button"
+      accessibilityState={{ expanded: open }}
+      accessibilityLabel="What do these filters mean?"
+      className={cn(
+        'border-border h-11 w-11 items-center justify-center rounded-full border web:hover:bg-accent active:bg-accent web:outline-none web:focus-visible:ring-2 web:focus-visible:ring-ring',
+        open && 'bg-accent'
+      )}>
+      <Icon as={Info} size={16} className={open ? 'text-foreground' : 'text-muted-foreground'} />
+    </Pressable>
+  );
+}
 
-      {open && (
-        <View role="list" aria-label="Freshness key" className="border-border bg-card gap-2.5 rounded-lg border p-3">
-          <Row icon={Layers} iconClass="text-muted-foreground" label="All" text="Everything in the freezer, fridge and pantry." />
-          <Row icon={Flame} iconClass="text-stage-expiring" label="Haunting" text="Needs attention now: expiring, rotting and spoiled items together." />
-          {ORDER.map((s) => (
-            <Row key={s} icon={STAGE_STYLE[s].icon} iconClass={STAGE_STYLE[s].text} label={STAGE_STYLE[s].label} text={STAGE_MEANING[s]} />
-          ))}
-          <Text className="text-muted-foreground pt-1 text-xs">
-            The number on each chip is how many items are in that group. Stages follow each item's expiry date, so confirm dates against the package.
-          </Text>
-        </View>
-      )}
+/** The freshness key itself: what each filter chip means. Shown below the chips when toggled open. */
+export function StageKeyPanel() {
+  return (
+    <View role="list" aria-label="Freshness key" className="border-border bg-card gap-2.5 rounded-lg border p-3">
+      <Row icon={Layers} iconClass="text-muted-foreground" label="All" text="Everything in the freezer, fridge and pantry." />
+      <Row icon={Flame} iconClass="text-stage-expiring" label="Haunting" text="Needs attention now: expiring, rotting and spoiled items together." />
+      {ORDER.map((s) => (
+        <Row key={s} icon={STAGE_STYLE[s].icon} iconClass={STAGE_STYLE[s].text} label={STAGE_STYLE[s].label} text={STAGE_MEANING[s]} />
+      ))}
+      <Text className="text-muted-foreground pt-1 text-xs">
+        The number on each chip is how many items are in that group. Stages follow each item's expiry date, so confirm dates against the package.
+      </Text>
     </View>
   );
 }

@@ -22,8 +22,8 @@ export function AttentionCard({ spoiled, estimated, onBury, onCheck }: Attention
       {spoiled.length > 0 && (
         <Row
           icon={<Icon as={Ghost} size={22} className="text-stage-spoiled" />}
-          title={`${spoiled.length} ${spoiled.length === 1 ? 'spirit is' : 'spirits are'} haunting your fridge`}
-          detail={`${spoiled.map((i) => i.name).join(', ')} spoiled. Lay them in the graveyard.`}
+          title={`${spoiled.length} spoiled`}
+          detail={spoiled.map((i) => i.name).join(', ')}
           action={`Bury ${spoiled.length}`}
           onPress={onBury}
         />
@@ -32,8 +32,8 @@ export function AttentionCard({ spoiled, estimated, onBury, onCheck }: Attention
       {estimated.length > 0 && (
         <Row
           icon={<Icon as={CalendarClock} size={22} className="text-warning" />}
-          title={`${estimated.length} expiry date${estimated.length === 1 ? ' is' : 's are'} still estimated`}
-          detail={`${estimated.map((i) => i.name).join(', ')}. Check the packages so the fridge knows what to use first.`}
+          title={`${estimated.length} ${estimated.length === 1 ? 'date' : 'dates'} to check`}
+          detail={estimated.map((i) => i.name).join(', ')}
           action={`Check ${estimated.length === 1 ? 'it' : 'first'}`}
           onPress={onCheck}
         />
@@ -46,9 +46,10 @@ function Row({
   icon, title, detail, action, onPress,
 }: { icon: React.ReactNode; title: string; detail: string; action: string; onPress: () => void }) {
   return (
-    <View className="flex-row flex-wrap items-center gap-3 p-3">
+    // Short titles keep the button on the same row, even at 320 px.
+    <View className="flex-row items-center gap-3 p-3">
       {icon}
-      <View className="min-w-48 flex-1">
+      <View className="min-w-0 flex-1">
         <Text className="font-semibold">{title}</Text>
         <Text className="text-muted-foreground text-sm" numberOfLines={2}>{detail}</Text>
       </View>

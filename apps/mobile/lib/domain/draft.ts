@@ -88,7 +88,7 @@ function halveFromToday(purchased: IsoDate, expires: IsoDate): IsoDate {
 /** Applies Gemini facts to a line: category, usual section and the estimate (unless the user already chose). */
 export function withInfo(line: DraftLine, info: ProductInfo | null, purchased: IsoDate, lessons?: Lessons): DraftLine {
   if (!info) return { ...line, info: null, ...reestimate(line, purchased, lessons) };
-  const category = line.manual && line.category !== 'produce' ? line.category : info.category;
+  const category = line.manual && line.category !== BLANK_CATEGORY ? line.category : info.category;
   const next: DraftLine = { ...line, info, category, zone: line.expiryConfirmed ? line.zone : info.homeZone };
   return { ...next, ...reestimate(next, purchased, lessons) };
 }
@@ -168,10 +168,13 @@ export function draftFromItemPhoto(
   };
 }
 
+/** Type a hand-added line starts with; until the user changes it, Gemini's answer replaces it. */
+const BLANK_CATEGORY: Category = 'vegetable';
+
 export function blankLine(purchased: IsoDate): DraftLine {
-  const est = estimateExpiry('produce', purchased, 'fridge');
+  const est = estimateExpiry(BLANK_CATEGORY, purchased, 'fridge');
   return {
-    id: newId('l'), raw: '', name: '', qty: '1', unit: 'pcs', price: '', category: 'produce',
+    id: newId('l'), raw: '', name: '', qty: '1', unit: 'pcs', price: '', category: BLANK_CATEGORY,
     confidence: 1, include: true, nonFood: false, manual: true, zone: 'fridge',
     expires: est.expires, expirySource: est.source, expiryConfirmed: false,
   };

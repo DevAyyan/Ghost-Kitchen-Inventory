@@ -43,8 +43,8 @@ export function WeekCard({ digest }: { digest?: boolean }) {
       </CardHeader>
       <CardContent className="gap-3 px-4">
         <View className="flex-row flex-wrap gap-3">
-          <Stat label="Rescued" value={w.rescuedCount ? rescued.text : '—'} note={`${w.rescuedCount} item${w.rescuedCount === 1 ? '' : 's'} used while turning`} accent="border-l-stage-fresh" />
-          <Stat label="Thrown out" value={w.wastedCount ? wasted.text : '—'} note={`${w.wastedCount} item${w.wastedCount === 1 ? '' : 's'}`} accent="border-l-destructive" />
+          <Stat label="Rescued" value={w.rescuedCount ? rescued.text : 'None yet'} note={`${w.rescuedCount} item${w.rescuedCount === 1 ? '' : 's'} used while turning`} accent="border-l-stage-fresh" />
+          <Stat label="Thrown out" value={w.wastedCount ? wasted.text : 'None'} note={`${w.wastedCount} item${w.wastedCount === 1 ? '' : 's'}`} accent="border-l-destructive" />
         </View>
         {(better || worse) && (
           <View className="flex-row items-center gap-2">
