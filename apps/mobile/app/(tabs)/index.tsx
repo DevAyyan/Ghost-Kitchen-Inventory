@@ -123,6 +123,7 @@ export default function FridgeScreen() {
       {items.length === 0 ? (
         <EmptyState
           icon={Refrigerator}
+          art="ghost"
           title="Your fridge is empty"
           description="Snap a receipt or a single item, or add food by hand, and it appears on these shelves."
           action={

@@ -1,3 +1,5 @@
+import { Art } from '@/components/halloween/art';
+import { Pumpkin } from '@/components/halloween/lab-icons';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
@@ -6,7 +8,7 @@ import { isHaunting, stageOf } from '@/lib/domain/expiry';
 import { useActiveItems, useLayout } from '@/lib/hooks';
 import { useServer } from '@/lib/store/server-store';
 import { usePathname, useRouter } from 'expo-router';
-import { Flame, Ghost, Settings, Sparkles, WifiOff } from 'lucide-react-native';
+import { Settings, Sparkles, WifiOff } from 'lucide-react-native';
 import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -25,7 +27,7 @@ export function TopBar() {
     <View className="border-border bg-card border-b" style={{ paddingTop: insets.top }}>
       <View className="h-14 flex-row items-center gap-2 px-4">
         <View className="flex-1 flex-row items-center gap-2">
-          <Icon as={Ghost} size={22} className="text-primary" />
+          <Art name="ghost" size={24} />
           <Text className="font-display text-2xl leading-7">Ghost Kitchen</Text>
         </View>
         {/* Steps aside where the "Haunting now" panel shows the same count. */}
@@ -34,7 +36,7 @@ export function TopBar() {
           accessibilityRole="button"
           accessibilityLabel={`${haunting} items need attention. Show them`}
           className="border-stage-expiring/50 bg-stage-expiring/10 h-11 flex-row items-center gap-1.5 rounded-full border px-3 web:focus-visible:ring-2 web:focus-visible:ring-ring web:outline-none">
-          <Icon as={Flame} size={16} className="text-stage-expiring" />
+          <Icon as={Pumpkin} size={16} className="text-stage-expiring" />
           <Text className="text-sm font-semibold tabular-nums">{haunting}</Text>
           {!isPhone && <Text className="text-muted-foreground text-sm">haunting</Text>}
         </Pressable>}

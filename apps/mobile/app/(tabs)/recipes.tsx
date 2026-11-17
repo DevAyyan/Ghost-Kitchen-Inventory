@@ -144,6 +144,7 @@ export default function RecipesScreen() {
       ) : state.recipes.length === 0 ? (
         <EmptyState
           icon={UtensilsCrossed}
+          art="crystalBall"
           title={settings.diets.length ? `No ${dietLabel} recipes fit what you have` : 'No recipes fit what you have'}
           description={state.warnings[0] ?? 'Try fewer filters, or add more groceries.'}
           action={settings.diets.length ? (

@@ -1,6 +1,7 @@
 import { FoodPhoto } from '@/components/food/food-photo';
 import { Gradient } from '@/components/fridge/gradient';
 import { useLoop } from '@/components/fridge/haunt-effects';
+import { Art } from '@/components/halloween/art';
 import { Text } from '@/components/ui/text';
 import { formatMoney } from '@/lib/currency/money';
 import { shortDate } from '@/lib/domain/dates';
@@ -103,11 +104,13 @@ function Tombstone({ grave: g, photo, size, share }: { grave: ItemEvent; photo?:
 
 function Moon() {
   return (
-    <View aria-hidden importantForAccessibility="no-hide-descendants" pointerEvents="none" className="absolute right-6 top-4 h-16 w-16 items-center justify-center">
-      <View className="absolute h-16 w-16 rounded-full" style={{ backgroundColor: MATERIALS.moonGlow }} />
-      <View className="h-10 w-10 rounded-full" style={{ backgroundColor: MATERIALS.moon }}>
-        <View className="absolute left-2 top-3 h-2 w-2 rounded-full bg-black/10" />
-        <View className="absolute bottom-2 right-3 h-1.5 w-1.5 rounded-full bg-black/10" />
+    <View aria-hidden importantForAccessibility="no-hide-descendants" pointerEvents="none" className="absolute right-6 top-4 h-16 w-32 flex-row items-start justify-end">
+      {/* Two bats crossing the moon: atmosphere only, so they stay still. */}
+      <Art name="bat" size={20} className="mt-1 -rotate-12" />
+      <Art name="bat" size={28} className="ml-1 mt-6 rotate-6" />
+      <View className="h-16 w-16 items-center justify-center">
+        <View className="absolute h-16 w-16 rounded-full" style={{ backgroundColor: MATERIALS.moonGlow }} />
+        <Art name="moon" size={40} />
       </View>
     </View>
   );

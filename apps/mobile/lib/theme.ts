@@ -58,7 +58,6 @@ export const MATERIALS = {
 
   // Graveyard scene.
   night: ['hsl(270, 32%, 14%)', 'hsl(269, 24%, 9%)', 'hsl(268, 20%, 7%)'] as Stops,
-  moon: 'hsl(48, 40%, 88%)',
   moonGlow: 'hsla(48, 60%, 88%, 0.10)',
   stone: ['hsl(220, 8%, 46%)', 'hsl(220, 9%, 32%)', 'hsl(222, 10%, 24%)'] as Stops,
   stoneEdge: 'hsl(222, 12%, 18%)',

@@ -1,3 +1,4 @@
+import { Art, type ArtName } from '@/components/halloween/art';
 import { Text } from '@/components/ui/text';
 import { isApiConfigured } from '@/lib/api';
 import { useServer } from '@/lib/store/server-store';
@@ -27,6 +28,8 @@ interface ScreenProps {
    * and reads heavy next to data, and the fridge's own effects already carry the theme.
    */
   display?: boolean;
+  /** A small Halloween illustration before the title. Decorative; the title says what the screen is. */
+  art?: ArtName;
 }
 
 /**
@@ -37,7 +40,7 @@ interface ScreenProps {
 export const ScreenScroll = React.createContext<{ reveal: (view: View | null) => void } | null>(null);
 
 /** Page scaffold: one h1 per screen, optional actions, offline banner, max content width on desktop. */
-export function Screen({ title, description, actions, children, fabClearance, scroll = true, scrollRef, needsServer, display }: ScreenProps) {
+export function Screen({ title, description, actions, children, fabClearance, scroll = true, scrollRef, needsServer, display, art }: ScreenProps) {
   const unreachable = useServer((s) => s.reachable === false) && isApiConfigured() && !!needsServer;
   const scroller = React.useRef<ScrollView | null>(null);
   const offset = React.useRef(0);
@@ -72,9 +75,12 @@ export function Screen({ title, description, actions, children, fabClearance, sc
           squeezes it into a narrow column. */}
       <View className="gap-1">
         <View className="flex-row flex-wrap items-center justify-between gap-3">
-          <Text role="heading" aria-level={1} className={cn('min-w-0 shrink', display ? 'font-display pb-2 text-4xl leading-10' : 'font-heading text-2xl tracking-tight')}>
-            {title}
-          </Text>
+          <View className="min-w-0 shrink flex-row items-center gap-2">
+            {art ? <Art name={art} size={32} /> : null}
+            <Text role="heading" aria-level={1} className={cn('min-w-0 shrink', display ? 'font-display pb-2 text-4xl leading-10' : 'font-heading text-2xl tracking-tight')}>
+              {title}
+            </Text>
+          </View>
           {actions ? <View className="flex-row flex-wrap items-center gap-2">{actions}</View> : null}
         </View>
         {description ? <Text className="text-muted-foreground max-w-prose text-sm">{description}</Text> : null}

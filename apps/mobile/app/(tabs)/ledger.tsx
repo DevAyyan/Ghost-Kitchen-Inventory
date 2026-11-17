@@ -18,7 +18,7 @@ import { useApp } from '@/lib/store/app-store';
 import { eventPhoto } from '@/lib/store/migrations';
 import { useSettings } from '@/lib/store/settings-store';
 import { cn } from '@/lib/utils';
-import { Coins, Receipt, History, Skull, TrendingDown, TrendingUp } from 'lucide-react-native';
+import { Coins, Receipt, History, Tombstone, TrendingDown, TrendingUp } from 'lucide-react-native';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { WeekCard } from '@/components/ledger/week-card';
@@ -96,7 +96,7 @@ export default function LedgerScreen() {
       <WeekCard digest />
       {isPhone && (
         <Button variant="outline" className="h-11 self-start" onPress={() => router.navigate('/graveyard')}>
-          <Icon as={Skull} size={16} />
+          <Icon as={Tombstone} size={16} />
           <Text>Open the graveyard</Text>
         </Button>
       )}

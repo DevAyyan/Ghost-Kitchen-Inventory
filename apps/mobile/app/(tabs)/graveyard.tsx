@@ -15,7 +15,7 @@ export default function GraveyardScreen() {
   return (
     <Screen display title="The graveyard" description={`${graves.length} buried · ${lost.text} lost. Every grave is a recipe that could have been.`}>
       {graves.length === 0 ? (
-        <EmptyState icon={Sprout} title="No graves yet" description="Everything has been eaten in time." />
+        <EmptyState icon={Sprout} art="headstone" title="No graves yet" description="Everything has been eaten in time." />
       ) : (
         <>
           <Text className="text-muted-foreground text-sm">The bigger the stone, the more that food cost you.</Text>

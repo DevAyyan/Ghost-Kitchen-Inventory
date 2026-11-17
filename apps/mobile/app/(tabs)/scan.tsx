@@ -153,6 +153,7 @@ export default function ScanScreen() {
 
   return (
     <Screen needsServer
+      art="pumpkin"
       title="Stock your fridge"
       description="Photograph a receipt, or single items without one. Nothing goes in until you check it.">
       {phase.kind === 'error' && (

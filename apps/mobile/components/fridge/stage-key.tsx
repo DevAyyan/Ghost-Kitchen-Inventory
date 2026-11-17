@@ -1,9 +1,10 @@
+import { Pumpkin } from '@/components/halloween/lab-icons';
 import { STAGE_STYLE } from '@/components/stage/stage-style';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import type { Stage } from '@/lib/domain/types';
 import { cn } from '@/lib/utils';
-import { Flame, Info, Layers, type LucideIcon } from 'lucide-react-native';
+import { Info, Layers, type LucideIcon } from 'lucide-react-native';
 import { Pressable, View } from 'react-native';
 
 /** Plain-language meaning of each stage. Mirrors stageOf() in lib/domain/expiry.ts. Also used by the food hover card. */
@@ -39,7 +40,7 @@ export function StageKeyPanel() {
   return (
     <View role="list" aria-label="Freshness key" className="border-border bg-card gap-2.5 rounded-lg border p-3">
       <Row icon={Layers} iconClass="text-muted-foreground" label="All" text="Everything in the freezer, fridge and pantry." />
-      <Row icon={Flame} iconClass="text-stage-expiring" label="Haunting" text="Needs attention now: expiring, rotting and spoiled items together." />
+      <Row icon={Pumpkin} iconClass="text-stage-expiring" label="Haunting" text="Needs attention now: expiring, rotting and spoiled items together." />
       {ORDER.map((s) => (
         <Row key={s} icon={STAGE_STYLE[s].icon} iconClass={STAGE_STYLE[s].text} label={STAGE_STYLE[s].label} text={STAGE_MEANING[s]} />
       ))}

@@ -5,8 +5,9 @@ import { Text } from '@/components/ui/text';
 import { STAGE_ORDER } from '@/lib/domain/catalog';
 import type { Stage } from '@/lib/domain/types';
 import { useLayout } from '@/lib/hooks';
+import { Pumpkin } from '@/components/halloween/lab-icons';
 import { COLORS } from '@/lib/theme';
-import { Flame, Layers } from 'lucide-react-native';
+import { Layers, type LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
 import { ScrollView, View } from 'react-native';
 import { Gradient } from './gradient';
@@ -32,9 +33,9 @@ export function StageFilter({
   const [scroll, setScroll] = React.useState({ x: 0, view: 0, content: 0 });
   const more = scroll.content > scroll.x + scroll.view + 8;
   const haunting = counts.expiring + counts.rotting + counts.spoiled;
-  const chips: { v: StageFilterValue; label: string; icon: typeof Flame; n: number; text?: string }[] = [
+  const chips: { v: StageFilterValue; label: string; icon: LucideIcon; n: number; text?: string }[] = [
     { v: 'all', label: 'All', icon: Layers, n: total },
-    { v: 'haunting', label: 'Haunting', icon: Flame, n: haunting, text: 'text-stage-expiring' },
+    { v: 'haunting', label: 'Haunting', icon: Pumpkin, n: haunting, text: 'text-stage-expiring' },
     ...[...STAGE_ORDER].reverse().map((st) => ({
       v: st as StageFilterValue, label: STAGE_STYLE[st].label, icon: STAGE_STYLE[st].icon, n: counts[st], text: STAGE_STYLE[st].text,
     })),

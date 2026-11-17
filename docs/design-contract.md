@@ -17,7 +17,8 @@ No external reference catalogue was supplied. Decisions below are drawn from com
 - **Radius:** shadcn scale from `--radius: 0.5rem`. Cards `rounded-lg`, chips/badges `rounded-full`, fridge cabinet `rounded-xl`. No `rounded-2xl+` elsewhere.
 - **Spacing:** Tailwind 0.25rem scale only. No arbitrary pixel values.
 - **Type:** three faces, after the Icons8 Halloween UI kit. System font (Roboto on Android) for all body and UI text. Bricolage Grotesque Bold (`font-heading`, OFL) for page `h1`s (`text-2xl`) and card titles. Mountains of Christmas Bold (`font-display`, Apache-2.0) only for the wordmark, the graveyard's title and tombstone engravings (`<Screen display>`), never on working screens or for anything people need to read at length. Custom faces carry no `font-bold` class: on Android a weight on a custom family can fall back to the system font. Until a face loads, the system font is shown. One `h1` per page, `h2` per section; numbers use `tabular-nums`.
-- **Icons:** Lucide line icons only. The kit's Icons8 icons and illustrations are not used (their free licence requires a visible credit link, and food is shown with the user's photos).
+- **Icons:** Lucide line icons, plus a few from Lucide Lab (ISC, `components/halloween/lab-icons.ts`): `Pumpkin` means "Haunting" (expiring + rotting + spoiled; `Flame` alone means expiring), `Cauldron` is Recipes, `SpiderWeb` is forgotten food (matching the cobweb effect), and Lucide's `Tombstone` is the Graveyard. The five stage icons don't change.
+- **Illustrations:** flat Microsoft Fluent Emoji (MIT, `components/halloween/art.tsx`, fetched by `scripts/fetch-halloween-art.mjs`), always decorative (`aria-hidden`) and beside words that say the same thing. Used only for the wordmark ghost, the Scan title (pumpkin), first-seen empty states (empty fridge: ghost; no graves: headstone; no recipes fit: crystal ball; nothing urgent: candle) and the graveyard's moon and bats. Never for food or controls. The Icons8 kit's own assets are not used (their free licence needs a visible credit link, and they can't be downloaded without a Figma login).
 
 ## Costume layer
 The spooky design must carry information. Every effect stands for one state, is decorative to assistive tech (`aria-hidden`), and the same fact is always given in words, in the item's label or on screen. Under reduced motion each effect becomes a still frame that still reads.
@@ -35,7 +36,7 @@ The spooky design must carry information. Every effect stands for one state, is 
 | Ember light through the door gaps | Something inside is expiring | Closed door | Door label ("5 expiring") |
 | Ghost peeking from the door gap | Something inside has spoiled | Closed door | Door label ("2 spoiled") |
 | Cobweb on the door | Something inside is forgotten | Closed door (top-right, clear of the magnets and the steel engraving) | Door label ("1 forgotten") |
-| Moon, drifting fog, leaning stones | Atmosphere only | Graveyard | — |
+| Moon, bats, drifting fog, leaning stones | Atmosphere only | Graveyard | — |
 
 ### Storage doors
 Each section (freezer, fridge, pantry) has a door drawn over its shelves (`components/fridge/storage-door.tsx`). The shelves always render underneath, so a compartment keeps its real height and grows with the food; the door art (`door-faces.tsx`, react-native-svg) is drawn at the measured size, never a fixed image.

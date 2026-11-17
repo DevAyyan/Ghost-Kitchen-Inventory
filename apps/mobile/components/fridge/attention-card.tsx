@@ -1,10 +1,11 @@
+import { SpiderWeb } from '@/components/halloween/lab-icons';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Separator } from '@/components/ui/separator';
 import { Text } from '@/components/ui/text';
 import type { MoveSuggestion } from '@/lib/domain/suggest';
 import type { Item } from '@/lib/domain/types';
-import { CalendarClock, ChevronDown, ChevronUp, Ghost, PackageSearch, Snowflake, type LucideIcon } from 'lucide-react-native';
+import { CalendarClock, ChevronDown, ChevronUp, Ghost, Snowflake, type LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
 import { Pressable, View } from 'react-native';
 
@@ -57,7 +58,7 @@ export function AttentionCard({ spoiled, estimated, moves, forgotten, onBury, on
   }
   if (forgotten.length > 0) {
     rows.push({
-      key: 'forgotten', icon: PackageSearch, iconClass: 'text-muted-foreground',
+      key: 'forgotten', icon: SpiderWeb, iconClass: 'text-muted-foreground',
       title: 'Still have these?', detail: `${names(forgotten)} · untouched for weeks`,
       action: 'Review', onPress: () => onOpen(forgotten[0]!.id),
     });
