@@ -84,3 +84,10 @@ The riskiest assumption is that people keep their fridge up to date. Before buil
 | `apps/api` | Fastify API: OCR → Gemini receipt reading, Gemini shelf life, TheMealDB recipes, exchange rates |
 | `infra/ocr` | Tesseract OCR service |
 | `docs` | Requirements (SRS), design (SDS), design contract |
+
+## Credits
+
+- Colours and fonts are inspired by the [Halloween UI kit (Icons8) on Figma Community](https://www.figma.com/design/POUVA3CQ3VZEhTOKPsoOKq/Halloween-UI-kit--Community-). No icons or illustrations from the kit are included.
+- [Mountains of Christmas](https://fonts.google.com/specimen/Mountains+of+Christmas) by Tart Workshop, Apache License 2.0.
+- [Bricolage Grotesque](https://fonts.google.com/specimen/Bricolage+Grotesque) by Mathieu Triay, SIL Open Font License 1.1.
+- Icons: [Lucide](https://lucide.dev), ISC License.

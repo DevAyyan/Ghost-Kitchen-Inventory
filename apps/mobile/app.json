@@ -7,7 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "ghostkitchen",
     "userInterfaceStyle": "dark",
-    "backgroundColor": "#0e1015",
+    "backgroundColor": "#120e15",
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true
@@ -16,7 +16,7 @@
       "package": "app.ghostkitchen.inventory",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#0e1015"
+        "backgroundColor": "#120e15"
       },
       "permissions": ["android.permission.CAMERA"],
       "blockedPermissions": [
@@ -37,7 +37,7 @@
         {
           "image": "./assets/images/splash.png",
           "resizeMode": "contain",
-          "backgroundColor": "#0e1015"
+          "backgroundColor": "#120e15"
         }
       ],
       "expo-status-bar",

@@ -7,33 +7,34 @@
 @layer base {
   :root,
   .dark:root {
-    --background: 228 22% 7%;
-    --foreground: 225 25% 94%;
-    --card: 228 20% 10%;
-    --card-foreground: 225 25% 94%;
-    --popover: 228 20% 11%;
-    --popover-foreground: 225 25% 94%;
-    --primary: 160 64% 52%;
-    --primary-foreground: 228 30% 8%;
-    --secondary: 228 16% 16%;
-    --secondary-foreground: 225 25% 94%;
-    --muted: 228 16% 14%;
-    --muted-foreground: 226 14% 68%;
-    --accent: 228 16% 18%;
-    --accent-foreground: 225 25% 94%;
-    --destructive: 0 72% 62%;
-    --border: 228 14% 20%;
-    --input: 228 14% 24%;
-    --ring: 160 64% 52%;
+    /* Surfaces carry a faint purple tint from the Icons8 Halloween kit; controls never use purple. */
+    --background: 268 20% 7%;
+    --foreground: 270 20% 95%;
+    --card: 268 18% 10%;
+    --card-foreground: 270 20% 95%;
+    --popover: 268 18% 11%;
+    --popover-foreground: 270 20% 95%;
+    --primary: 155 87% 59%;
+    --primary-foreground: 268 30% 8%;
+    --secondary: 268 14% 16%;
+    --secondary-foreground: 270 20% 95%;
+    --muted: 268 14% 14%;
+    --muted-foreground: 268 10% 70%;
+    --accent: 273 40% 20%;
+    --accent-foreground: 270 20% 95%;
+    --destructive: 2 82% 66%;
+    --border: 268 12% 21%;
+    --input: 268 12% 25%;
+    --ring: 155 87% 59%;
     --radius: 0.5rem;
 
     /* Freshness stages: the only colourful system in the UI. Always paired with an icon and label. */
-    --stage-fresh: 142 62% 56%;
-    --stage-aging: 72 62% 56%;
-    --stage-expiring: 28 95% 60%;
-    --stage-rotting: 275 62% 72%;
-    --stage-spoiled: 215 10% 66%;
-    --warning: 40 92% 62%;
+    --stage-fresh: 158 58% 52%;
+    --stage-aging: 70 66% 56%;
+    --stage-expiring: 24 95% 60%;
+    --stage-rotting: 272 77% 72%;
+    --stage-spoiled: 265 8% 66%;
+    --warning: 45 100% 66%;
 
     /* Fridge cabinet surfaces */
     --cabinet: 220 18% 16%;

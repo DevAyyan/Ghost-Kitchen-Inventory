@@ -12,7 +12,7 @@ import { ScrollView, View } from 'react-native';
 import { Gradient } from './gradient';
 
 /** Page background, fully transparent and solid, for the fade that hints more chips are off-screen. */
-const FADE = ['hsla(228, 22%, 7%, 0)', COLORS.background] as const;
+const FADE = ['hsla(268, 20%, 7%, 0)', COLORS.background] as const;
 
 export type StageFilterValue = 'all' | 'haunting' | Stage;
 

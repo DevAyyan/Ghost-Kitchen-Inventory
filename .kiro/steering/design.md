@@ -13,7 +13,8 @@ The rules people break most often:
 - Dark theme only. One mint primary action per screen; no gradients on controls.
 - Freshness stages are the only colourful system. Always show colour, icon and text together, never colour alone.
 - Spooky effects must mean something: follow the "Costume layer" table. A new effect needs a meaning, a still frame for reduced motion (`useMotionAllowed()`), and the same fact in words.
-- The gothic `font-display` face is for the wordmark and the graveyard only. Page titles and body text use the system font.
+- The decorative `font-display` face (Mountains of Christmas) is for the wordmark and the graveyard only. Page titles and card titles use `font-heading` (Bricolage Grotesque); body text uses the system font.
+- Purple is a surface tint only, never a control or brand colour.
 - At most one line of supporting text per row or card; explanations go in the item sheet.
 - Touch targets are at least 44 px (`h-11`). Every control has an accessible label and role.
 - Use `components/common/filter-chip.tsx` for chips and `responsive-sheet.tsx` for sheets.

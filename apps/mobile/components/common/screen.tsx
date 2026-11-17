@@ -72,7 +72,7 @@ export function Screen({ title, description, actions, children, fabClearance, sc
           squeezes it into a narrow column. */}
       <View className="gap-1">
         <View className="flex-row flex-wrap items-center justify-between gap-3">
-          <Text role="heading" aria-level={1} className={cn('min-w-0 shrink', display ? 'font-display text-4xl leading-10' : 'text-2xl font-bold tracking-tight')}>
+          <Text role="heading" aria-level={1} className={cn('min-w-0 shrink', display ? 'font-display pb-2 text-4xl leading-10' : 'font-heading text-2xl tracking-tight')}>
             {title}
           </Text>
           {actions ? <View className="flex-row flex-wrap items-center gap-2">{actions}</View> : null}

@@ -35,9 +35,11 @@ module.exports = {
         paper: { DEFAULT: hsl('paper'), foreground: hsl('paper-foreground') },
       },
       fontFamily: {
-        // Gothic display face for page titles, the wordmark and tombstones only. Body text stays system.
-        // Loaded in app/_layout.tsx; until it loads (or if it fails) the system font is used.
-        display: ['GrenzeGotisch_700Bold'],
+        // Display face (Mountains of Christmas, from the Halloween UI kit): the wordmark, the graveyard and
+        // tombstones only. Headings use Bricolage Grotesque; body text stays system.
+        // Loaded in app/_layout.tsx; until they load (or if they fail) the system font is used.
+        display: ['MountainsofChristmas_700Bold'],
+        heading: ['BricolageGrotesque_700Bold'],
       },
       borderRadius: {
         lg: 'var(--radius)',

@@ -20,8 +20,8 @@ export default function Root({ children }: PropsWithChildren) {
         <ScrollViewStyleReset />
         {/* Dark-only app: dark native scrollbars and form controls on web. */}
         <meta name="color-scheme" content="dark" />
-        <style dangerouslySetInnerHTML={{ __html: ':root{color-scheme:dark;background-color:#0e1015}*{scrollbar-color:#2b2f3a transparent;scrollbar-width:thin}::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#2b2f3a;border-radius:8px}' }} />
-        <meta name="theme-color" content="#0e1015" />
+        <style dangerouslySetInnerHTML={{ __html: ':root{color-scheme:dark;background-color:#120e15}*{scrollbar-color:#332c3b transparent;scrollbar-width:thin}::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#332c3b;border-radius:8px}' }} />
+        <meta name="theme-color" content="#120e15" />
 
         {/* Add any additional <head> elements that you want globally available on web... */}
       </head>

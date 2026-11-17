@@ -13,7 +13,8 @@ import { useApp } from '@/lib/store/app-store';
 import { useSettings } from '@/lib/store/settings-store';
 import { useServer } from '@/lib/store/server-store';
 import { COLORS, NAV_THEME } from '@/lib/theme';
-import { GrenzeGotisch_700Bold } from '@expo-google-fonts/grenze-gotisch/700Bold';
+import { BricolageGrotesque_700Bold } from '@expo-google-fonts/bricolage-grotesque/700Bold';
+import { MountainsofChristmas_700Bold } from '@expo-google-fonts/mountains-of-christmas/700Bold';
 import { PortalHost } from '@rn-primitives/portal';
 import { useFonts } from 'expo-font';
 import { Stack, useRouter } from 'expo-router';
@@ -32,7 +33,7 @@ export default function RootLayout() {
   const { setColorScheme } = useColorScheme();
   const hydrated = useHydrated();
   // Display face for titles. Not awaited: text renders in the system font until it's ready (or if it fails).
-  useFonts({ GrenzeGotisch_700Bold });
+  useFonts({ MountainsofChristmas_700Bold, BricolageGrotesque_700Bold });
 
   // Dark-only product (design contract).
   useEffect(() => setColorScheme('dark'), [setColorScheme]);

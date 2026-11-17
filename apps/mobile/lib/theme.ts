@@ -2,22 +2,22 @@ import { DarkTheme, type Theme } from 'expo-router/react-navigation';
 
 /** JS mirror of global.css, for places that need raw colours (navigation, status bar, SVG). */
 export const COLORS = {
-  background: 'hsl(228 22% 7%)',
-  foreground: 'hsl(225 25% 94%)',
-  card: 'hsl(228 20% 10%)',
-  muted: 'hsl(228 16% 14%)',
-  mutedForeground: 'hsl(226 14% 68%)',
-  primary: 'hsl(160 64% 52%)',
-  primaryForeground: 'hsl(228 30% 8%)',
-  border: 'hsl(228 14% 20%)',
-  destructive: 'hsl(0 72% 62%)',
-  warning: 'hsl(40 92% 62%)',
+  background: 'hsl(268 20% 7%)',
+  foreground: 'hsl(270 20% 95%)',
+  card: 'hsl(268 18% 10%)',
+  muted: 'hsl(268 14% 14%)',
+  mutedForeground: 'hsl(268 10% 70%)',
+  primary: 'hsl(155 87% 59%)',
+  primaryForeground: 'hsl(268 30% 8%)',
+  border: 'hsl(268 12% 21%)',
+  destructive: 'hsl(2 82% 66%)',
+  warning: 'hsl(45 100% 66%)',
   stage: {
-    fresh: 'hsl(142 62% 56%)',
-    aging: 'hsl(72 62% 56%)',
-    expiring: 'hsl(28 95% 60%)',
-    rotting: 'hsl(275 62% 72%)',
-    spoiled: 'hsl(215 10% 66%)',
+    fresh: 'hsl(158 58% 52%)',
+    aging: 'hsl(70 66% 56%)',
+    expiring: 'hsl(24 95% 60%)',
+    rotting: 'hsl(272 77% 72%)',
+    spoiled: 'hsl(265 8% 66%)',
   },
 } as const;
 
@@ -50,14 +50,14 @@ export const MATERIALS = {
 
   // Decay overlays on food tiles. Mould uses the aging (olive) and rotting (violet) stage hues,
   // so decay stays inside the freshness colour system.
-  mould: ['hsla(72, 45%, 52%, 0.85)', 'hsla(275, 40%, 62%, 0.75)', 'hsla(90, 22%, 40%, 0.85)'] as const,
+  mould: ['hsla(70, 45%, 52%, 0.85)', 'hsla(272, 45%, 62%, 0.75)', 'hsla(90, 22%, 40%, 0.85)'] as const,
   yellowing: 'hsla(48, 70%, 50%, 0.14)',
   cobweb: 'hsla(220, 20%, 92%, 0.55)',
   ghost: 'hsla(220, 30%, 96%, 0.92)',
-  ghostEye: 'hsl(228, 22%, 7%)',
+  ghostEye: 'hsl(268, 20%, 7%)',
 
   // Graveyard scene.
-  night: ['hsl(232, 30%, 13%)', 'hsl(230, 24%, 9%)', 'hsl(228, 22%, 7%)'] as Stops,
+  night: ['hsl(270, 32%, 14%)', 'hsl(269, 24%, 9%)', 'hsl(268, 20%, 7%)'] as Stops,
   moon: 'hsl(48, 40%, 88%)',
   moonGlow: 'hsla(48, 60%, 88%, 0.10)',
   stone: ['hsl(220, 8%, 46%)', 'hsl(220, 9%, 32%)', 'hsl(222, 10%, 24%)'] as Stops,
@@ -73,8 +73,8 @@ export const MATERIALS = {
   doorGap: 'hsl(220, 20%, 4%)',
   /** Light from expiring food: the expiring stage hue, so it stays inside the freshness colours. Dim over the
    *  near-black gap so it reads as a glow through a crack, not an orange stripe painted on. */
-  ember: 'hsla(28, 92%, 52%, 0.6)',
-  emberSpill: ['hsla(28, 95%, 60%, 0)', 'hsla(28, 95%, 60%, 0.32)'] as Stops,
+  ember: 'hsla(24, 92%, 52%, 0.6)',
+  emberSpill: ['hsla(24, 95%, 60%, 0)', 'hsla(24, 95%, 60%, 0.32)'] as Stops,
   engraveOnSteel: 'hsl(220, 16%, 13%)',
   engraveOnWood: 'hsl(36, 40%, 86%)',
   steelBrush: 'hsla(0, 0%, 100%, 0.08)',
