@@ -1,3 +1,4 @@
+import { ScreenScroll } from '@/components/common/screen';
 import { Text } from '@/components/ui/text';
 import type { DoorSignals } from '@/lib/domain/haunt';
 import { useCanHover, useMotionAllowed } from '@/lib/hooks';
@@ -20,6 +21,12 @@ const SWING_MS = 520;
  * magnets share one leaf, so they stack taller.
  */
 const COMPACT_HEIGHT = { steel: 144, wood: 176 } as const;
+
+/** Lets the door tell its compartment how tall the closed panel must be to fit every magnet. */
+const CompactNeed = React.createContext<((h: number) => void) | null>(null);
+/** Space under the magnets: the "Tap to open" hint and the gap above it, or just a margin without it. */
+const HINT_SPACE = 34;
+const NO_HINT_SPACE = 14;
 
 /**
  * Removes a closed compartment from the keyboard's tab order and from clicks on web (`inert`).
@@ -55,17 +62,31 @@ interface CompartmentProps {
  */
 export function Compartment({ open, door, onClose, what = 'compartment', kind = 'steel', children }: CompartmentProps) {
   const ref = React.useRef<View>(null);
+  const box = React.useRef<View>(null);
   const motion = useMotionAllowed();
+  const page = React.useContext(ScreenScroll);
   useInert(ref, !open);
   const [collapsed, setCollapsed] = React.useState(!open);
+  // How tall the closed door must be to show all its magnets and the hint (reported by StorageDoor).
+  const [needed, setNeeded] = React.useState(0);
   React.useEffect(() => {
     if (open) return setCollapsed(false);
     // Let the leaf finish swinging over the full compartment first.
     const id = setTimeout(() => setCollapsed(true), motion ? SWING_MS : 0);
     return () => clearTimeout(id);
   }, [open, motion]);
+  // Shrinking pulls the bottom up; if the reader was down there, follow the door back up.
+  const wasCollapsed = React.useRef(collapsed);
+  React.useEffect(() => {
+    if (collapsed && !wasCollapsed.current) requestAnimationFrame(() => page?.reveal(box.current));
+    wasCollapsed.current = collapsed;
+  }, [collapsed, page]);
   return (
-    <View className={cn('relative', collapsed && 'overflow-hidden')} style={collapsed ? { maxHeight: COMPACT_HEIGHT[kind] } : undefined}>
+    <CompactNeed.Provider value={setNeeded}>
+      <View
+        ref={box}
+        className={cn('relative', collapsed && 'overflow-hidden')}
+        style={collapsed ? { maxHeight: Math.max(COMPACT_HEIGHT[kind], needed) } : undefined}>
       <View
         ref={ref}
         aria-hidden={!open}
@@ -79,7 +100,8 @@ export function Compartment({ open, door, onClose, what = 'compartment', kind = 
         {onClose && <CloseStrip kind={kind} what={what} onPress={onClose} />}
       </View>
       {door}
-    </View>
+      </View>
+    </CompactNeed.Provider>
   );
 }
 
@@ -127,6 +149,7 @@ interface StorageDoorProps {
  * Reduced motion: opens and closes instantly.
  */
 export function StorageDoor({ open, onOpen, label, kind, signals, title, focusOnClose, hint = true }: StorageDoorProps) {
+  const needHeight = React.useContext(CompactNeed);
   const motion = useMotionAllowed();
   const canHover = useCanHover();
   const press = React.useRef<View>(null);
@@ -186,7 +209,15 @@ export function StorageDoor({ open, onOpen, label, kind, signals, title, focusOn
               <Cobweb className="inset-0 h-12 w-12" />
             </View>
           )}
-          <Magnets signals={signals} className={wood ? 'left-3 right-1/2 top-3 mr-4' : 'left-3 right-10 top-9'} />
+          <Magnets
+            signals={signals}
+            className={wood ? 'left-3 right-1/2 top-3 mr-4' : 'left-3 right-10 top-9'}
+            // Tell the compartment how tall the closed panel must be: magnets wrap onto more rows when narrow.
+            onLayout={(e) => {
+              const { y, height } = e.nativeEvent.layout;
+              needHeight?.(Math.ceil(y + height + (hint ? HINT_SPACE : NO_HINT_SPACE)));
+            }}
+          />
           {hint && (
             <Text className="absolute bottom-3 left-3 text-xs font-semibold" style={{ color: hintColor }}>
               {canHover ? 'Click to open' : 'Tap to open'}

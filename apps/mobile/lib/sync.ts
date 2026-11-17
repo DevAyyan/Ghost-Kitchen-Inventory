@@ -23,6 +23,22 @@ const POLL_MS = 30_000;
 const pendingKey = (c: SyncCollection, id: string) => `${c}:${id}`;
 const records = (s: Data, c: SyncCollection) => s[c] as unknown as Rec[];
 
+/**
+ * How far this device's clock is from the server's, learned from each sync reply. Edits are stamped in
+ * server time, so last-write-wins compares like with like: a phone whose clock is ten minutes slow no
+ * longer loses every conflict, nor wins them when it runs fast.
+ */
+let clockOffset = 0;
+const syncNowMs = () => Date.now() + clockOffset;
+
+function learnClock(sentAt: number, receivedAt: number, serverTime: number) {
+  if (!Number.isFinite(serverTime)) return;
+  // The server's time was read somewhere in the round trip; assume the middle.
+  const estimate = serverTime - (sentAt + receivedAt) / 2;
+  // Smooth over several replies so one slow request can't swing it.
+  clockOffset = clockOffset === 0 ? estimate : clockOffset * 0.7 + estimate * 0.3;
+}
+
 /** Fields that only make sense on this device. */
 function toWire(r: Rec): Record<string, unknown> {
   const { photoUri: _photo, ...rest } = r;
@@ -65,7 +81,7 @@ let applyingRemote = false;
 function markChanged(prev: Data, next: Data) {
   const { household, pending } = useHousehold.getState();
   if (!household) return false;
-  const now = Date.now();
+  const now = syncNowMs();
   let changed = false;
   const out = { ...pending };
   for (const c of COLLECTIONS) {
@@ -86,7 +102,7 @@ function markChanged(prev: Data, next: Data) {
 /** After joining, everything already on this device is offered to the household. */
 function markAllPending() {
   const s = useApp.getState();
-  const now = Date.now();
+  const now = syncNowMs();
   const pending: Record<string, number> = {};
   for (const c of COLLECTIONS) for (const r of records(s, c)) pending[pendingKey(c, r.id)] = now;
   useHousehold.getState().set({ pending });
@@ -153,7 +169,9 @@ async function runOnce() {
         const rec = byColl.get(c)!.get(id);
         return [rec ? { collection: c, id, updatedAt: at, deleted: false, data: toWire(rec) } : { collection: c, id, updatedAt: at, deleted: true, data: null }];
       });
+      const sentAt = Date.now();
       const res = await api.syncHousehold(key, { deviceId, since: cursor, changes });
+      learnClock(sentAt, Date.now(), res.serverTime);
       // Drop what was pushed, unless it changed again while the request was out.
       const now = useHousehold.getState().pending;
       const left = { ...now };

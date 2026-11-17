@@ -10,14 +10,15 @@ import { Text } from '@/components/ui/text';
 import { type MoneySummary, formatMoney, summarize as baseSummarize } from '@/lib/currency/money';
 import { STAGE_META } from '@/lib/domain/catalog';
 import { formatQty } from '@/lib/domain/units';
-import { shortDate } from '@/lib/domain/dates';
+import { addDays, shortDate, today } from '@/lib/domain/dates';
 import { isAtRisk, stageOf } from '@/lib/domain/expiry';
 import { useActiveItems } from '@/lib/hooks';
 import { LEDGER_DAYS, useRatesFor, withinLedgerWindow } from '@/lib/rates';
 import { useApp } from '@/lib/store/app-store';
+import { eventPhoto } from '@/lib/store/migrations';
 import { useSettings } from '@/lib/store/settings-store';
 import { cn } from '@/lib/utils';
-import { Coins, Receipt, History, Skull } from 'lucide-react-native';
+import { Coins, Receipt, History, Skull, TrendingDown, TrendingUp } from 'lucide-react-native';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { WeekCard } from '@/components/ledger/week-card';
@@ -30,6 +31,8 @@ export default function LedgerScreen() {
   const items = useActiveItems();
   const allReceipts = useApp((s) => s.receipts);
   const allEvents = useApp((s) => s.events);
+  const allItems = useApp((s) => s.items);
+  const itemsById = React.useMemo(() => new Map(allItems.map((i) => [i.id, i])), [allItems]);
   const receipts = allReceipts.filter((r) => withinLedgerWindow(r.date));
   const events = allEvents.filter((e) => withinLedgerWindow(e.date));
   const display = useSettings((s) => s.settings.displayCurrency);
@@ -50,21 +53,47 @@ export default function LedgerScreen() {
   const rescue =
     avoided.value !== null && wasted.value !== null && avoided.value + wasted.value > 0
       ? Math.round((avoided.value / (avoided.value + wasted.value)) * 100) : null;
+  // Against the 30 days before: is it getting better? Only when both are in one comparable figure.
+  const before = summarize(allEvents.filter((e) => e.type === 'discarded' && e.date < addDays(today(), -LEDGER_DAYS) && e.date >= addDays(today(), -2 * LEDGER_DAYS)));
+  const trend = wasted.value !== null && before.value !== null && (wasted.value > 0 || before.value > 0)
+    ? { better: wasted.value <= before.value, text: wasted.value === before.value ? 'same as the 30 days before' : `${wasted.value < before.value ? 'less' : 'more'} than the 30 days before (${before.text})` }
+    : null;
 
   return (
     <Screen
       title="Ledger"
       description={`Last ${LEDGER_DAYS} days · amounts are kept in their original currency`}
       actions={<CurrencyChip code={display} prefix="Show in" showName={false} onPress={() => setPickerOpen(true)} />}>
-      <View className="flex-row flex-wrap gap-3">
-        {/* Spending is neither good nor bad, so it gets a neutral bar; the colours mean saved, wasted, at risk. */}
-        <Kpi label="Spent" m={spend} note={`${receipts.length} receipt${receipts.length === 1 ? '' : 's'}`} accent="border-t-muted-foreground/40" />
-        <Kpi label="Waste avoided" m={avoided} note="used before it spoiled" accent="border-t-stage-fresh" />
-        <Kpi label="Wasted" m={wasted} note="buried in the graveyard" accent="border-t-destructive" />
-        <Kpi label="At risk now" m={risk} note="expiring or rotting" accent="border-t-stage-expiring" />
+      {/* One number up top: what was thrown away. The rest is a small breakdown under it. */}
+      <View role="group" aria-label={`Wasted in the last ${LEDGER_DAYS} days: ${wasted.text}`} className="border-border bg-card gap-3 rounded-lg border p-4">
+        <View className="gap-1">
+          <Text className="text-muted-foreground text-sm">Wasted, last {LEDGER_DAYS} days</Text>
+          <View className="flex-row flex-wrap items-end gap-x-3 gap-y-1">
+            <Text className="text-destructive text-4xl font-bold tabular-nums">{wasted.text}</Text>
+            {trend && (
+              <View className="flex-row items-center gap-1 pb-1.5">
+                <Icon as={trend.better ? TrendingDown : TrendingUp} size={16} className={trend.better ? 'text-stage-fresh' : 'text-destructive'} />
+                <Text className="text-muted-foreground text-sm">{trend.text}</Text>
+              </View>
+            )}
+          </View>
+          {wasted.detail ? <Text className="text-muted-foreground text-xs">{wasted.detail}</Text> : null}
+        </View>
+        {rescue !== null && (
+          <View className="gap-1">
+            <Progress value={rescue} indicatorClassName="bg-stage-fresh" className="bg-destructive/30 h-2" aria-label={`${rescue}% of food that started to turn was rescued`} />
+            <Text className="text-muted-foreground text-xs">{rescue}% of food that started to turn was rescued</Text>
+          </View>
+        )}
+        <View className="border-border flex-row border-t pt-3">
+          <Mini label="Spent" m={spend} />
+          <Mini label="Saved" m={avoided} className="text-stage-fresh" />
+          <Mini label="At risk now" m={risk} className="text-stage-expiring" />
+        </View>
       </View>
 
-      <WeekCard />
+      {/* Last week's summary (the web's stand-in for the Monday notification), shown until dismissed. */}
+      <WeekCard digest />
       {isPhone && (
         <Button variant="outline" className="h-11 self-start" onPress={() => router.navigate('/graveyard')}>
           <Icon as={Skull} size={16} />
@@ -83,15 +112,6 @@ export default function LedgerScreen() {
             {uncovered.join(', ')} {uncovered.length === 1 ? "has" : "have"} no exchange rate right now, so mixed totals are shown per currency instead of converted.
           </AlertDescription>
         </Alert>
-      )}
-      {rescue !== null && (
-        <View className="gap-2">
-          <View className="flex-row justify-between">
-            <Text className="text-sm">Rescue rate</Text>
-            <Text className="text-sm font-semibold">{rescue}% of at-risk food saved</Text>
-          </View>
-          <Progress value={rescue} indicatorClassName="bg-stage-fresh" className="bg-destructive/30 h-3" aria-label={`${rescue}% rescued`} />
-        </View>
       )}
 
       <Card className="gap-2 py-4">
@@ -116,7 +136,7 @@ export default function LedgerScreen() {
             <Row
               key={e.id}
               left={e.name}
-              photo={<FoodPhoto photoUri={e.photoUri} category={e.category} size="xs" />}
+              photo={<FoodPhoto photoUri={eventPhoto(e, itemsById)} category={e.category} name={e.name} size="xs" />}
               middle={`${e.type === 'used' ? 'Used' : 'Buried'}${e.amount !== undefined && e.unit ? ` ${formatQty(e.amount, e.unit)}` : ''} · ${STAGE_META[e.stage].label.toLowerCase()}`}
               right={`${e.type === 'discarded' ? '−' : ''}${formatMoney(e.minor, e.currency)}`}
               rightClass={e.type === 'discarded' ? 'text-destructive' : e.stage !== 'fresh' ? 'text-stage-fresh' : 'text-muted-foreground'}
@@ -137,12 +157,12 @@ export default function LedgerScreen() {
   );
 }
 
-function Kpi({ label, m, note, accent }: { label: string; m: MoneySummary; note: string; accent: string }) {
+/** One small figure in the breakdown under the hero number. */
+function Mini({ label, m, className }: { label: string; m: MoneySummary; className?: string }) {
   return (
-    <View role="group" accessibilityLabel={`${label}: ${m.text}`} className={cn('border-border bg-card min-w-40 flex-1 gap-1 rounded-lg border border-t-4 p-3', accent)}>
+    <View role="group" accessibilityLabel={`${label}: ${m.text}`} className="min-w-0 flex-1 gap-0.5">
       <Text className="text-muted-foreground text-xs">{label}</Text>
-      <Text className="text-lg font-bold tabular-nums">{m.text}</Text>
-      <Text className="text-muted-foreground text-xs">{m.detail ?? note}</Text>
+      <Text className={cn('font-semibold tabular-nums', className)} numberOfLines={1}>{m.text}</Text>
     </View>
   );
 }

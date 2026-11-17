@@ -70,7 +70,7 @@ export const ReviewLine = React.memo(function ReviewLine({
             accessibilityRole="button"
             accessibilityLabel={line.photoUri ? `Retake photo of ${name}` : `Take a photo of ${name}`}
             className="relative">
-            <FoodPhoto photoUri={line.photoUri} category={line.category} size="sm" className="h-11 w-11" />
+            <FoodPhoto photoUri={line.photoUri} category={line.category} name={line.name} size="sm" className="h-11 w-11" />
             {!line.photoUri && (
               <View className="bg-primary absolute -bottom-1 -right-1 h-5 w-5 items-center justify-center rounded-full">
                 <Icon as={Camera} size={11} className="text-primary-foreground" />

@@ -7,6 +7,8 @@ import { shortDate } from '@/lib/domain/dates';
 import { seeded, stoneSize } from '@/lib/domain/haunt';
 import type { ItemEvent } from '@/lib/domain/types';
 import { MATERIALS } from '@/lib/theme';
+import { useApp } from '@/lib/store/app-store';
+import { eventPhoto } from '@/lib/store/migrations';
 import { cn } from '@/lib/utils';
 import * as React from 'react';
 import { View } from 'react-native';
@@ -33,13 +35,15 @@ const HEADROOM = { min: 12, max: 96 };
 /** A moonlit plot: one tombstone per item thrown away, newest first. */
 export function GraveyardScene({ graves }: { graves: ItemEvent[] }) {
   const max = Math.max(0, ...graves.map((g) => g.minor));
+  const items = useApp((s) => s.items);
+  const byId = React.useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
   return (
     // Taller on wide screens, with the stones standing on the ground at the bottom of the plot.
     <Gradient colors={MATERIALS.night} className="border-border justify-end rounded-lg border md:min-h-96">
       <Moon />
       <View role="list" className="flex-row flex-wrap items-end justify-center gap-x-4 gap-y-6 px-3 pt-16">
         {graves.map((g) => (
-          <Tombstone key={g.id} grave={g} size={stoneSize(g.minor, max)} share={max > 0 ? g.minor / max : 0} />
+          <Tombstone key={g.id} grave={g} photo={eventPhoto(g, byId)} size={stoneSize(g.minor, max)} share={max > 0 ? g.minor / max : 0} />
         ))}
       </View>
       <Gradient colors={MATERIALS.earth} className="h-4" aria-hidden importantForAccessibility="no-hide-descendants" />
@@ -48,7 +52,7 @@ export function GraveyardScene({ graves }: { graves: ItemEvent[] }) {
   );
 }
 
-function Tombstone({ grave: g, size, share }: { grave: ItemEvent; size: 'sm' | 'md' | 'lg'; share: number }) {
+function Tombstone({ grave: g, photo, size, share }: { grave: ItemEvent; photo?: string; size: 'sm' | 'md' | 'lg'; share: number }) {
   // Stable per grave, so stones don't reshuffle between renders: shape, lean and epitaph.
   const look = React.useMemo(() => {
     const rand = seeded(g.id);
@@ -75,7 +79,7 @@ function Tombstone({ grave: g, size, share }: { grave: ItemEvent; size: 'sm' | '
           <Text className="font-display text-sm tracking-widest" style={{ color: MATERIALS.stoneText }}>
             R.I.P.
           </Text>
-          <FoodPhoto photoUri={g.photoUri} category={g.category} stage="spoiled" size="sm" />
+          <FoodPhoto photoUri={photo} category={g.category} name={g.name} stage="spoiled" size="sm" />
           <Text numberOfLines={2} className="font-display text-center text-xl leading-6" style={{ color: MATERIALS.stoneText }}>
             {g.name}
           </Text>

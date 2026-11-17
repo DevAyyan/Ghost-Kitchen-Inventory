@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { AiError } from '../src/gemini.js';
-import { createProductService } from '../src/products.js';
+import { createProductService, sanitizeProduct } from '../src/products.js';
 import { createReceiptScanner, ScanError } from '../src/receipts.js';
 import { createRecipeService } from '../src/recipes.js';
 import type { ProductInfo } from '../src/schemas.js';
@@ -109,10 +109,35 @@ describe('recipe suggestions', () => {
   ];
   const svc = (ai = productAi({})) => createRecipeService(db, createProductService(new MemoryStore(), ai));
 
-  it('matches strictly: "Chicken breast" is not "Chicken", so it finds no chicken recipes', async () => {
+  it('a cut or variety covers the plain ingredient: "Chicken breast" rescues chicken recipes', async () => {
     const out = await svc().suggest({ items: [{ id: 'a', name: 'Chicken breast', urgency: 3 }, ...items.slice(2)], diets: [], limit: 6, useAi: true });
-    expect(out.meta.unmatchedSeeds).toEqual(['Chicken breast']);
-    expect(out.recipes).toEqual([]);
+    expect(out.meta.unmatchedSeeds).toEqual([]);
+    expect(out.recipes.map((r) => r.id).sort()).toEqual(['1', '4']);
+    expect(out.recipes.find((r) => r.id === '1')!.rescuesItemIds).toEqual(['a']);
+  });
+  it('leaves out recipes that need a big shop', async () => {
+    const big = meal('9', 'Feast', ['Spinach', 'Lamb', 'Saffron', 'Quince', 'Pistachios', 'Rosewater', 'Barberries']);
+    const out = await createRecipeService(fakeMealDb([...meals, big], { Spinach: ['2', '3', '9'] }), createProductService(new MemoryStore(), productAi({})))
+      .suggest({ items, diets: [], limit: 6, useAi: true });
+    expect(out.recipes.map((r) => r.id)).not.toContain('9');
+    expect(out.recipes.every((r) => r.missing.length <= 5)).toBe(true);
+  });
+  it('a recipe you can make with what you have beats one that needs shopping', async () => {
+    const own = meal('20', 'Spinach and garlic', ['Spinach', 'Garlic']);
+    const shop = meal('21', 'Spinach pie', ['Spinach', 'Feta', 'Filo pastry', 'Dill']);
+    const out = await createRecipeService(fakeMealDb([own, shop], { Spinach: ['20', '21'] }), createProductService(new MemoryStore(), productAi({})))
+      .suggest({ items, diets: [], limit: 6, useAi: true });
+    expect(out.recipes.map((r) => r.id)).toEqual(['20', '21']);
+  });
+  it('says how much of each fridge item a recipe uses, in that item\'s unit, when the measure is readable', async () => {
+    const soup = meal('30', 'Potato soup', ['Potatoes', 'Milk', 'Spinach'], { ingredients: [
+      { name: 'Potatoes', measure: '300g' }, { name: 'Milk', measure: '1 cup' }, { name: 'Spinach', measure: 'a handful' },
+    ] } as never);
+    const out = await createRecipeService(fakeMealDb([soup], { Potatoes: ['30'] }, ['Potatoes', 'Milk', 'Spinach']), createProductService(new MemoryStore(), productAi({})))
+      .suggest({ items: [
+        { id: 'p', name: 'Potatoes', unit: 'kg', urgency: 3 }, { id: 'm', name: 'Milk', unit: 'l', urgency: 2 }, { id: 's', name: 'Spinach', unit: 'g', urgency: 2 },
+      ], diets: [], limit: 6, useAi: true });
+    expect(out.recipes[0]!.uses).toEqual({ p: { amount: 0.3, unit: 'kg' }, m: { amount: 0.24, unit: 'l' } });
   });
   it('queries every TheMealDB variant of an ingredient', async () => {
     const asked: string[] = [];
@@ -137,11 +162,21 @@ describe('recipe suggestions', () => {
     expect(out.warnings[0]).toMatch(/nothing is close/i);
   });
   it('filters by diet using Gemini ingredient tags', async () => {
-    const ai = productAi({ bacon: { category: 'meat', tags: ['pork', 'meat'], highRisk: true }, eggs: { tags: ['egg'] }, butter: { tags: ['dairy'] } });
+    // Chicken has no tags here on purpose: its category alone must keep it out of vegan recipes.
+    const ai = productAi({ chicken: { category: 'meat', tags: [], highRisk: true }, bacon: { category: 'meat', tags: ['pork', 'meat'], highRisk: true }, eggs: { tags: ['egg'] }, butter: { tags: ['dairy'] } });
     const vegan = await svc(ai).suggest({ items, diets: ['vegan'], limit: 6, useAi: true });
     expect(vegan.recipes.map((r) => r.id)).toEqual([]);
     const halal = await svc(ai).suggest({ items, diets: ['halal'], limit: 6, useAi: true });
-    expect(halal.recipes.map((r) => r.id).sort()).toEqual(['2']);
+    expect(halal.recipes.map((r) => r.id).sort()).toEqual(['1', '2', '4']);
+    const veggie = await svc(ai).suggest({ items, diets: ['vegetarian'], limit: 6, useAi: true });
+    expect(veggie.recipes.map((r) => r.id)).toEqual(['2']);
+  });
+  it('a product\'s category always carries its diet tag, even when the model leaves it out', () => {
+    const base = { name: 'x', homeZone: 'fridge' as const, shelfLifeDays: { pantry: null, fridge: 3, freezer: 60 }, highRisk: true, multiUse: false, tip: '' };
+    expect(sanitizeProduct({ ...base, category: 'meat', tags: [] })!.tags).toContain('meat');
+    expect(sanitizeProduct({ ...base, category: 'fish', tags: [] })!.tags).toContain('fish');
+    expect(sanitizeProduct({ ...base, category: 'dairy', tags: [] })!.tags).toContain('dairy');
+    expect(sanitizeProduct({ ...base, category: 'eggs', tags: ['egg'] })!.tags).toEqual(['egg']);
   });
   it('fails closed: with AI unavailable, diet-filtered recipes are hidden, not guessed', async () => {
     const off = fakeGemini(() => ({}), false);

@@ -137,6 +137,7 @@ export function makeItem(input: {
     photoUri: input.photoUri,
     category,
     zone,
+    home: homeZone(category, info),
     // The category floor applies even if the model said otherwise.
     highRisk: (info?.highRisk ?? false) || HIGH_RISK_CATEGORIES.has(category),
     qty: input.qty && input.qty > 0 ? input.qty : 1,

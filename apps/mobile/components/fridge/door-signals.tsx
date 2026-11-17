@@ -5,7 +5,8 @@ import { STAGE_ORDER } from '@/lib/domain/catalog';
 import type { DoorSignals } from '@/lib/domain/haunt';
 import { MATERIALS } from '@/lib/theme';
 import { cn } from '@/lib/utils';
-import { View } from 'react-native';
+import type { LucideIcon } from 'lucide-react-native';
+import { View, type LayoutChangeEvent } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { Gradient } from './gradient';
 import { PeekBody, usePeekPhysics } from './ghost';
@@ -17,32 +18,57 @@ import { useLoop } from './haunt-effects';
  * door's button label says all of it for screen readers.
  */
 
-/** One magnet per stage with food in it: icon + count + word, never colour alone. */
-export function Magnets({ signals, className }: { signals: DoorSignals; className?: string }) {
+/** Hand-placed tilts (degrees), so the set looks stuck on one at a time, and the same on every render. */
+const TILTS = [-4, 3, -2, 5, -3];
+
+/**
+ * One magnet per stage with food in it: icon + count + word on a chunky, glossy magnet in that stage's
+ * colour, never colour alone. Built like the real thing: a coloured body with a highlight across the top,
+ * a dark pin "dot" where it meets the door, and a soft shadow under it.
+ */
+export function Magnets({ signals, className, onLayout }: { signals: DoorSignals; className?: string; onLayout?: (e: LayoutChangeEvent) => void }) {
   const stages = STAGE_ORDER.filter((s) => signals.counts[s] > 0);
   return (
-    <View className={cn('absolute flex-row flex-wrap gap-1.5', className)}>
+    <View onLayout={onLayout} className={cn('absolute flex-row flex-wrap items-start gap-x-2 gap-y-2.5', className)}>
       {signals.total === 0 ? (
-        <View className="border-border bg-card rounded-full border px-2 py-0.5">
-          <Text className="text-xs">Empty</Text>
-        </View>
+        <Magnet tilt={-3} bodyClass="bg-secondary" label="Empty" />
       ) : (
         stages.map((s, i) => {
           const st = STAGE_STYLE[s];
           return (
-            <View
+            <Magnet
               key={s}
-              // A slight, fixed tilt: stuck on by hand, the same every render.
-              style={{ transform: [{ rotate: `${i % 2 ? 2 : -2}deg` }] }}
-              className={cn('bg-card flex-row items-center gap-1 rounded-full border px-2 py-0.5', st.border)}>
-              <Icon as={st.icon} size={12} className={st.text} />
-              <Text className="text-xs font-semibold tabular-nums">
-                {signals.counts[s]} {st.label.toLowerCase()}
-              </Text>
-            </View>
+              tilt={TILTS[i % TILTS.length]!}
+              bodyClass={st.bg}
+              icon={st.icon}
+              count={signals.counts[s]}
+              label={st.label.toLowerCase()}
+            />
           );
         })
       )}
+    </View>
+  );
+}
+
+function Magnet({ tilt, bodyClass, icon, count, label }: { tilt: number; bodyClass: string; icon?: LucideIcon; count?: number; label: string }) {
+  const coloured = count !== undefined;
+  return (
+    <View style={{ transform: [{ rotate: `${tilt}deg` }] }}>
+      {/* Shadow on the door, a little below and to the right of the magnet. */}
+      <View className="absolute inset-0 translate-x-0.5 translate-y-1 rounded-lg bg-black/45" />
+      <View className={cn('flex-row items-center gap-1.5 overflow-hidden rounded-lg border border-black/25 py-1 pl-1.5 pr-2.5', bodyClass)}>
+        <Gradient colors={MATERIALS.magnetGloss} className="absolute inset-x-0 top-0 h-1/2" />
+        {icon && (
+          <View className="h-6 w-6 items-center justify-center rounded-full bg-black/20">
+            <Icon as={icon} size={14} className="text-background" />
+          </View>
+        )}
+        {coloured && <Text className="text-background text-lg font-black leading-6 tabular-nums">{count}</Text>}
+        <Text className={cn('text-xs font-bold uppercase tracking-wide', coloured ? 'text-background' : 'text-foreground')}>{label}</Text>
+      </View>
+      {/* The pin dot: where the magnet grips the door. */}
+      <View className="absolute -top-1 left-1/2 -ml-1 h-2 w-2 rounded-full border border-black/40 bg-black/50" />
     </View>
   );
 }

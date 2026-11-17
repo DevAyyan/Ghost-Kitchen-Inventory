@@ -22,16 +22,13 @@ export function HauntPanel({ items, onSelect }: { items: Item[]; onSelect: (id: 
   const events = useApp((s) => s.events).filter((e) => withinLedgerWindow(e.date));
   const summarize = useSummarize();
   const risky = items.filter((i) => isHaunting(stageOf(i))).sort((a, b) => daysLeft(a) - daysLeft(b));
-  const atRisk = summarize(items.filter((i) => isAtRisk(stageOf(i))).map((i) => ({ minor: Math.round(i.priceMinor * i.fraction), currency: i.currency })));
   const avoided = summarize(events.filter((e) => e.type === 'used' && e.stage !== 'fresh'));
   const wasted = summarize(events.filter((e) => e.type === 'discarded'));
 
   return (
     <ScrollView contentContainerClassName="gap-3 p-4">
       <Text role="heading" aria-level={2} className="text-lg font-semibold">Haunting now</Text>
-      <Text className="text-muted-foreground text-sm">
-        {risky.length} items need attention · {atRisk.text} at risk
-      </Text>
+      {/* The count and value are in the page's summary line; this panel is just the list. */}
       {risky.length === 0 && <Text className="text-muted-foreground text-sm">Nothing haunting. Nice.</Text>}
       {/* Grouped worst first. The stage colour is on the group's icon, so the rows themselves stay quiet. */}
       {GROUPS.map((stage) => {
@@ -54,7 +51,7 @@ export function HauntPanel({ items, onSelect }: { items: Item[]; onSelect: (id: 
                   accessibilityRole="button"
                   accessibilityLabel={`${i.name}, ${s.label}, ${remainingText(daysLeft(i))}`}
                   className="web:hover:bg-accent active:bg-accent min-h-11 flex-row items-center gap-3 rounded-md px-2 py-1.5 web:outline-none web:focus-visible:ring-2 web:focus-visible:ring-ring">
-                  <FoodPhoto photoUri={i.photoUri} category={i.category} stage={stage} size="sm" />
+                  <FoodPhoto photoUri={i.photoUri} category={i.category} name={i.name} stage={stage} size="sm" />
                   <View className="flex-1">
                     <Text className="text-sm font-medium">{i.name}</Text>
                     <Text className="text-muted-foreground text-xs">{remainingText(daysLeft(i))}</Text>

@@ -16,7 +16,7 @@ No external reference catalogue was supplied. Decisions below are drawn from com
 - **Haunting effects** live on fridge food tiles, compartment lamps and the graveyard scene only (see "Costume layer" below). All are stilled by `prefers-reduced-motion` or the in-app setting.
 - **Radius:** shadcn scale from `--radius: 0.5rem`. Cards `rounded-lg`, chips/badges `rounded-full`, fridge cabinet `rounded-xl`. No `rounded-2xl+` elsewhere.
 - **Spacing:** Tailwind 0.25rem scale only. No arbitrary pixel values.
-- **Type:** System font (Roboto on Android) for all body and UI text. The gothic display face (Grenze Gotisch Bold, `font-display`) is used only for page `h1`s, the wordmark and tombstone engravings, and never below `text-sm` or for anything people need to read at length. One `h1` per page, `h2` per section; numbers use `tabular-nums`.
+- **Type:** System font (Roboto on Android) for all body and UI text, including page `h1`s (`text-2xl font-bold`). The gothic display face (Grenze Gotisch Bold, `font-display`) is used only for the wordmark, the graveyard's title and tombstone engravings (`<Screen display>`), never on working screens or for anything people need to read at length. One `h1` per page, `h2` per section; numbers use `tabular-nums`.
 
 ## Costume layer
 The spooky design must carry information. Every effect stands for one state, is decorative to assistive tech (`aria-hidden`), and the same fact is always given in words, in the item's label or on screen. Under reduced motion each effect becomes a still frame that still reads.
@@ -96,7 +96,7 @@ Rules: one meaning per effect (cobwebs never mean anything but "forgotten"). Eff
 | Settings | Currency, diet, privacy, motion | — | Tesseract-only, offline |
 
 ## Responsive rules (mobile first)
-- `< md (768px)`, which includes Android: top app bar, bottom navigation (5 items: Fridge, Scan, Recipes, Plan, Ledger; 48dp targets; Settings in the top bar, Graveyard from the Ledger), FAB for Scan on the fridge. Details, pickers and confirmations open in a bottom **Drawer**. Fridge zones stack and the door becomes a horizontal shelf.
+- `< md (768px)`, which includes Android: top app bar, bottom navigation (5 items: Fridge, Scan, Recipes, Plan, Ledger; 48dp targets; Settings in the top bar, Graveyard from the Ledger). Adding food has one home, the Scan tab (the fridge's "+" goes there); there is no floating button covering content. Details, pickers and confirmations open in a bottom **Drawer**. Fridge zones stack and the door becomes a horizontal shelf.
 - `md`–`lg`: left navigation rail. Details open in a right **Sheet**. Dialogs for confirmations.
 - `≥ xl (1280px)`: a persistent right "Haunting now" panel lists at-risk items.
 - Mouse or trackpad on web (`useCanHover`, any width): resting on a food tile for 350 ms opens a small hover card summarising its stage, what that means, the date, amount left and value. It is a shortcut only (everything in it is also in the tile label and details), never on touch or Android, and clicking the tile dismisses it.
@@ -108,3 +108,20 @@ Rules: one meaning per effect (cobwebs never mean anything but "forgotten"). Eff
 
 ## Patterns to reject
 Stock 3-up card grids for the fridge, hero banners, gradient buttons, glassmorphism, shadow stacks, emoji or illustrations for food (food is shown with the user's own photos; items without one get a neutral line icon), colour-only status, spinners where skeletons fit, modals on mobile when a drawer works.
+
+### Magnets
+Each stage with food behind a closed door gets one magnet (`door-signals.tsx`): a chunky rounded body in that stage's colour with a gloss highlight across the top, a dark pin dot where it grips the door, a soft shadow, and a fixed hand-placed tilt. It always carries the stage icon, the count and the word, in dark text on the stage colour, so it never relies on colour alone.
+
+### Keeping the fridge true
+Logging must be quick or the fridge stops matching the real one.
+- An item's sheet reads top to bottom: a compact header (small photo, stage, days left, camera button), a facts row (Left · Worth · Expires), then **Used it all** and **Binned it** (`quick-actions.tsx`), then one advice line; partial use, dates and moving by hand follow below. The sheet title is the name, so it isn't repeated.
+- Press and hold a fridge tile for the same two actions without opening the sheet (`quick-sheet.tsx`). Screen readers get it as a custom action.
+- The fridge can also be shown as a **use-first list** (`use-first-list.tsx`, remembered in `settings.fridgeView`): rows grouped by stage, most urgent first; swipe right for used, left for binned, with buttons on each row doing the same.
+- The attention card, above the fridge, shows only the most urgent decision; the rest fold under "N more to do". One short line each: spoiled food to bury; **Freeze X** for expiring, freezable food (or "Move X to the fridge", `lib/domain/suggest.ts`, which uses the same safety rules as moving by hand); dates to check once food starts to turn; and **Still have these?** for food untouched for weeks.
+- **Text:** at most one line of supporting text per row or card. Explanations belong in the item sheet.
+- **Food icons:** without a photo, a food shows an icon for what it is, from its name (`food-icon.ts`: apple, cherry, leafy green, drumstick…), falling back to its category. Tiles don't carry an amount badge; amounts are in the hover card, the list and the sheet.
+- **Sets of food** (Recipes, Plan) are one line, `ItemsLine`: the most urgent few as small photos and names, then "+N", with the stage colour once. No walls of coloured pills.
+- **Recipes** load on their own when food is turning; the best match sits on top as "Tonight", open.
+- **Ledger:** one hero number (wasted in the last 30 days, with the trend against the 30 days before), a rescue bar and a small Spent · Saved · At risk row.
+- Stages follow the calendar: the app re-renders when the date turns (`lib/store/clock.ts`).
+- The weekly digest lives on the Ledger, not the fridge screen.

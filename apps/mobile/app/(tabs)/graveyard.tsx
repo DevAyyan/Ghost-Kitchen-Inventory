@@ -13,7 +13,7 @@ export default function GraveyardScreen() {
   const lost = summarize(graves);
 
   return (
-    <Screen title="The graveyard" description={`${graves.length} buried · ${lost.text} lost. Every grave is a recipe that could have been.`}>
+    <Screen display title="The graveyard" description={`${graves.length} buried · ${lost.text} lost. Every grave is a recipe that could have been.`}>
       {graves.length === 0 ? (
         <EmptyState icon={Sprout} title="No graves yet" description="Everything has been eaten in time." />
       ) : (

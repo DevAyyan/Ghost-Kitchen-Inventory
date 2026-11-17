@@ -22,11 +22,44 @@ interface ScreenProps {
    * offline means here. Elsewhere the top bar's "Offline" pill is enough.
    */
   needsServer?: boolean;
+  /**
+   * Set the title in the gothic display face. Only for the graveyard: on working screens it costs space
+   * and reads heavy next to data, and the fridge's own effects already carry the theme.
+   */
+  display?: boolean;
 }
 
+/**
+ * Lets something inside the page keep itself in view after the layout above the reader changes. Used by
+ * storage doors: closing a tall section shrinks it, which would leave the reader past its bottom, looking
+ * at whatever came next instead of the door they just shut.
+ */
+export const ScreenScroll = React.createContext<{ reveal: (view: View | null) => void } | null>(null);
+
 /** Page scaffold: one h1 per screen, optional actions, offline banner, max content width on desktop. */
-export function Screen({ title, description, actions, children, fabClearance, scroll = true, scrollRef, needsServer }: ScreenProps) {
+export function Screen({ title, description, actions, children, fabClearance, scroll = true, scrollRef, needsServer, display }: ScreenProps) {
   const unreachable = useServer((s) => s.reachable === false) && isApiConfigured() && !!needsServer;
+  const scroller = React.useRef<ScrollView | null>(null);
+  const offset = React.useRef(0);
+  const setScroller = React.useCallback((node: ScrollView | null) => {
+    scroller.current = node;
+    if (typeof scrollRef === 'function') scrollRef(node);
+    else if (scrollRef) (scrollRef as React.MutableRefObject<ScrollView | null>).current = node;
+  }, [scrollRef]);
+  const scrollApi = React.useMemo(() => ({
+    reveal: (view: View | null) => {
+      const sv = scroller.current as unknown as View | null;
+      if (!view || !sv) return;
+      // Window coordinates work the same on web and Android; only scroll if its top went above the view.
+      sv.measureInWindow((_x, svTop) => {
+        view.measureInWindow((_vx, viewTop) => {
+          const gap = viewTop - svTop;
+          if (gap >= 0) return;
+          scroller.current?.scrollTo({ y: Math.max(0, offset.current + gap - 12), animated: true });
+        });
+      });
+    },
+  }), []);
   const content = (
     <View className="mx-auto w-full max-w-6xl gap-4">
       {unreachable && (
@@ -39,7 +72,7 @@ export function Screen({ title, description, actions, children, fabClearance, sc
           squeezes it into a narrow column. */}
       <View className="gap-1">
         <View className="flex-row flex-wrap items-center justify-between gap-3">
-          <Text role="heading" aria-level={1} className="font-display min-w-0 shrink text-4xl leading-10">
+          <Text role="heading" aria-level={1} className={cn('min-w-0 shrink', display ? 'font-display text-4xl leading-10' : 'text-2xl font-bold tracking-tight')}>
             {title}
           </Text>
           {actions ? <View className="flex-row flex-wrap items-center gap-2">{actions}</View> : null}
@@ -52,11 +85,13 @@ export function Screen({ title, description, actions, children, fabClearance, sc
   if (!scroll) return <View className="flex-1 px-4 pt-4">{content}</View>;
   return (
     <ScrollView
-      ref={scrollRef}
+      ref={setScroller}
+      onScroll={(e) => { offset.current = e.nativeEvent.contentOffset.y; }}
+      scrollEventThrottle={32}
       className="flex-1"
       contentContainerClassName={cn('px-4 pt-4 md:px-6 md:pt-6', fabClearance ? 'pb-28' : 'pb-10')}
       keyboardShouldPersistTaps="handled">
-      {content}
+      <ScreenScroll.Provider value={scrollApi}>{content}</ScreenScroll.Provider>
     </ScrollView>
   );
 }

@@ -7,6 +7,7 @@ import { daysLeft, remainingText, shortRemaining, stageOf } from '@/lib/domain/e
 import type { Item } from '@/lib/domain/types';
 import { forgottenText, isForgotten, untouchedDays } from '@/lib/domain/haunt';
 import { formatAmount, formatQty, spokenQty } from '@/lib/domain/units';
+import { useDay } from '@/lib/store/clock';
 import { cn } from '@/lib/utils';
 import * as React from 'react';
 import { Pressable, View } from 'react-native';
@@ -22,6 +23,8 @@ interface FoodTileProps {
   item: Item;
   selected: boolean;
   onPress: (id: string) => void;
+  /** Press and hold: quick actions without opening the item ("Used it all", "Binned it"). */
+  onLongPress?: (id: string) => void;
   /** Desktop browser with a mouse: show a floating summary card on hover (see useCanHover). */
   hoverCard?: boolean;
   /** Width in px when the shelf stretches tiles to fill its row; the base width otherwise. */
@@ -37,19 +40,21 @@ const HOVER_CLOSE_MS = 100;
  * Stage = border colour + border style + corner icon + days text, plus its decay "costume": yellowing
  * (aging), glow (expiring), mould and flies (rotting), a rising ghost (spoiled), cobwebs (forgotten).
  */
-export const FoodTile = React.memo(function FoodTile({ item, selected, onPress, hoverCard, width }: FoodTileProps) {
-  if (!hoverCard) return <Tile item={item} selected={selected} onPress={onPress} width={width} />;
-  return <HoverableTile item={item} selected={selected} onPress={onPress} width={width} />;
+export const FoodTile = React.memo(function FoodTile({ item, selected, onPress, onLongPress, hoverCard, width }: FoodTileProps) {
+  // Tiles are memoised on the item, so they listen for the date turning themselves.
+  useDay((s) => s.day);
+  if (!hoverCard) return <Tile item={item} selected={selected} onPress={onPress} onLongPress={onLongPress} width={width} />;
+  return <HoverableTile item={item} selected={selected} onPress={onPress} onLongPress={onLongPress} width={width} />;
 });
 
-function HoverableTile({ item, selected, onPress, width }: Omit<FoodTileProps, 'hoverCard'>) {
+function HoverableTile({ item, selected, onPress, onLongPress, width }: Omit<FoodTileProps, 'hoverCard'>) {
   // Clicking opens the full details, so the summary gets out of the way and stays hidden until the pointer
   // leaves the tile; the hover card then reports itself closed, which re-arms it for the next hover.
   const [dismissed, setDismissed] = React.useState(false);
   return (
     <HoverCard openDelay={HOVER_OPEN_MS} closeDelay={HOVER_CLOSE_MS} onOpenChange={(open) => !open && setDismissed(false)}>
       <HoverCardTrigger asChild>
-        <Tile item={item} selected={selected} width={width} onPress={(id) => { setDismissed(true); onPress(id); }} />
+        <Tile item={item} selected={selected} width={width} onLongPress={onLongPress} onPress={(id) => { setDismissed(true); onPress(id); }} />
       </HoverCardTrigger>
       {!dismissed && (
         <HoverCardContent side="top" className="w-64 p-3" aria-hidden>
@@ -61,8 +66,8 @@ function HoverableTile({ item, selected, onPress, width }: Omit<FoodTileProps, '
 }
 
 /** Forwards its ref and any trigger props (pointer handlers from the hover card) to the Pressable. */
-const Tile = React.forwardRef<View, Omit<FoodTileProps, 'hoverCard'> & Omit<React.ComponentProps<typeof Pressable>, 'onPress' | 'children'>>(function Tile(
-  { item, selected, onPress, width, ...triggerProps },
+const Tile = React.forwardRef<View, Omit<FoodTileProps, 'hoverCard'> & Omit<React.ComponentProps<typeof Pressable>, 'onPress' | 'onLongPress' | 'children'>>(function Tile(
+  { item, selected, onPress, onLongPress, width, ...triggerProps },
   ref
 ) {
   const stage = stageOf(item);
@@ -92,6 +97,11 @@ const Tile = React.forwardRef<View, Omit<FoodTileProps, 'hoverCard'> & Omit<Reac
       ref={ref}
       {...triggerProps}
       onPress={() => onPress(item.id)}
+      onLongPress={onLongPress ? () => onLongPress(item.id) : undefined}
+      delayLongPress={400}
+      accessibilityHint={onLongPress ? 'Press and hold for quick actions' : undefined}
+      accessibilityActions={onLongPress ? [{ name: 'longpress', label: 'Quick actions' }] : undefined}
+      onAccessibilityAction={onLongPress ? (e) => { if (e.nativeEvent.actionName === 'longpress') onLongPress(item.id); } : undefined}
       accessibilityRole="button"
       accessibilityState={{ selected }}
       accessibilityLabel={label}
@@ -107,7 +117,7 @@ const Tile = React.forwardRef<View, Omit<FoodTileProps, 'hoverCard'> & Omit<Reac
       {stage === 'rotting' && <Flies />}
       {stage === 'spoiled' && <RisingGhost />}
       <View className="items-center gap-0.5">
-        <FoodPhoto photoUri={item.photoUri} category={item.category} stage={stage} size="md">
+        <FoodPhoto photoUri={item.photoUri} category={item.category} name={item.name} stage={stage} size="md">
           {stage === 'aging' && <Yellowing />}
           {stage === 'rotting' && <Mould id={item.id} daysOver={-rem} />}
           {/* Inside the photo's bottom corner, so it never covers the name, days left or the badges. */}
@@ -128,11 +138,7 @@ const Tile = React.forwardRef<View, Omit<FoodTileProps, 'hoverCard'> & Omit<Reac
       <View className={cn('border-background absolute -right-2 -top-2 h-6 w-6 items-center justify-center rounded-full border-2', s.bg)}>
         <Icon as={s.icon} size={12} className="text-background" />
       </View>
-      {amountBadge && (
-        <View className="border-border bg-secondary absolute -left-2 -top-2 rounded-md border px-1">
-          <Text className="text-[10px] font-semibold tabular-nums">{amountBadge}</Text>
-        </View>
-      )}
+      {/* How much is left lives in the hover card and the item sheet: the tile shows only what to act on. */}
     </Pressable>
   );
 });

@@ -68,6 +68,8 @@ export const MATERIALS = {
   fog: ['hsla(220, 30%, 85%, 0)', 'hsla(220, 30%, 85%, 0.05)', 'hsla(220, 30%, 85%, 0.12)'] as Stops,
 
   // Storage doors (fridge screen, closed state).
+  /** Highlight across the top of a fridge magnet, so it reads as glossy plastic. */
+  magnetGloss: ['hsla(0, 0%, 100%, 0.45)', 'hsla(0, 0%, 100%, 0)'] as Stops,
   doorGap: 'hsl(220, 20%, 4%)',
   /** Light from expiring food: the expiring stage hue, so it stays inside the freshness colours. Dim over the
    *  near-black gap so it reads as a glow through a crack, not an orange stripe painted on. */

@@ -3,6 +3,7 @@ import { stageOf } from '@/lib/domain/expiry';
 import { learnFromHistory } from '@/lib/domain/learning';
 import type { Item, Stage } from '@/lib/domain/types';
 import { useApp } from '@/lib/store/app-store';
+import { useDay } from '@/lib/store/clock';
 import { useHousehold } from '@/lib/store/household-store';
 import { useSettings } from '@/lib/store/settings-store';
 import { useEffect, useMemo, useState } from 'react';
@@ -28,15 +29,18 @@ export function useLessons() {
 }
 
 export function useActiveItems(): Item[] {
+  // Re-render when the date turns, so stages computed from these items stay current.
+  useDay((s) => s.day);
   return useApp(useShallow((s) => s.items.filter((i) => i.status === 'active')));
 }
 
 export function useStageCounts(items: Item[]): Record<Stage, number> {
+  const day = useDay((s) => s.day);
   return useMemo(() => {
     const c: Record<Stage, number> = { fresh: 0, aging: 0, expiring: 0, rotting: 0, spoiled: 0 };
-    for (const i of items) c[stageOf(i)]++;
+    for (const i of items) c[stageOf(i, day)]++;
     return c;
-  }, [items]);
+  }, [items, day]);
 }
 
 /**

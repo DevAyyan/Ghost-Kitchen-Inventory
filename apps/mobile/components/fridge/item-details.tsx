@@ -10,8 +10,10 @@ import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 import { formatMoney } from '@/lib/currency/money';
 import { MovePanel } from './move-panel';
+import { QuickActions } from './quick-actions';
 import { UsePanel } from './use-panel';
 import { formatQty } from '@/lib/domain/units';
 import { CATEGORIES, CATEGORY_LABEL } from '@/lib/domain/catalog';
@@ -24,8 +26,11 @@ import { ListPlus, ShieldAlert, ShieldCheck, Trash2 } from 'lucide-react-native'
 import * as React from 'react';
 import { View } from 'react-native';
 
-/** Details + actions for one item. Rendered in the side panel (desktop) or a sheet (phone/tablet). */
-export function ItemDetails({ item, onDone }: { item: Item; onDone: () => void }) {
+/**
+ * Details + actions for one item. Rendered in the side panel (desktop) or a sheet (phone/tablet).
+ * `showName`: off inside a sheet, whose title already names the item.
+ */
+export function ItemDetails({ item, onDone, showName = true }: { item: Item; onDone: () => void; showName?: boolean }) {
   const discardItem = useApp((s) => s.discardItem);
   const setExpiry = useApp((s) => s.setExpiry);
   const confirmExpiry = useApp((s) => s.confirmExpiry);
@@ -58,30 +63,40 @@ export function ItemDetails({ item, onDone }: { item: Item; onDone: () => void }
 
   return (
     <View className="gap-4">
-      <View className="flex-row flex-wrap items-end gap-3">
-        <FoodPhoto photoUri={item.photoUri} category={item.category} stage={stage} size="lg" />
-        <View className="min-w-40 flex-1 gap-2">
-          <Text className="text-lg font-semibold">{item.name}</Text>
-          <StageBadge stage={stage} />
-          <PhotoButtons
-            hasPhoto={!!item.photoUri}
-            onPhoto={(uri) => { setPhoto(item.id, uri); toast(`Photo saved for ${item.name}`); }}
-          />
+      {/* Who: a small photo, the stage and the one number that matters. The sheet's title is the name. */}
+      <View className="flex-row items-center gap-3">
+        <FoodPhoto photoUri={item.photoUri} category={item.category} name={item.name} stage={stage} size="md" />
+        <View className="min-w-0 flex-1 gap-1">
+          {showName && <Text className="text-lg font-semibold" numberOfLines={2}>{item.name}</Text>}
+          <View className="flex-row flex-wrap items-center gap-2">
+            <StageBadge stage={stage} />
+            <Text className="font-semibold tabular-nums">{remainingText(rem)}</Text>
+          </View>
         </View>
+        <PhotoButtons
+          compact
+          hasPhoto={!!item.photoUri}
+          onPhoto={(uri) => { setPhoto(item.id, uri); toast(`Photo saved for ${item.name}`); }}
+        />
+      </View>
+      <Progress value={Math.max(3, freshness * 100)} indicatorClassName={STAGE_STYLE[stage].bg} aria-label="Freshness remaining" />
+
+      {/* The facts at a glance, in one row. */}
+      <View className="border-border flex-row rounded-lg border">
+        <FactCell label="Left" value={item.fraction < 1 ? `${formatQty(item.qty * item.fraction, item.unit)} of ${formatQty(item.qty, item.unit)}` : formatQty(item.qty, item.unit)} />
+        <FactCell label="Worth" value={formatMoney(Math.round(item.priceMinor * item.fraction), item.currency)} border />
+        <FactCell label="Expires" value={`${shortDate(item.expires)}${item.expiryConfirmed ? '' : ' · est.'}`} border warn={!item.expiryConfirmed} />
       </View>
 
-      <View className="gap-2">
-        <Progress value={Math.max(3, freshness * 100)} indicatorClassName={STAGE_STYLE[stage].bg} aria-label="Freshness remaining" />
-        <Text className="font-semibold">{remainingText(rem)}</Text>
-      </View>
-
-      {item.tip ? <Text className="text-muted-foreground text-sm">Tip: {item.tip}</Text> : null}
+      <QuickActions item={item} stage={stage} onDone={onDone} />
 
       {advice && (
-        <Alert icon={ShieldAlert} variant={advice.tone === 'danger' ? 'destructive' : 'default'} iconClassName={advice.tone === 'warning' ? 'text-warning' : undefined}>
-          <AlertDescription>{advice.text}</AlertDescription>
-        </Alert>
+        <View className="flex-row items-start gap-2">
+          <Icon as={ShieldAlert} size={16} className={cn('mt-0.5', advice.tone === 'danger' ? 'text-destructive' : 'text-warning')} />
+          <Text className="flex-1 text-sm">{advice.text}</Text>
+        </View>
       )}
+      {item.tip ? <Text className="text-muted-foreground text-sm">Tip: {item.tip}</Text> : null}
 
       {sniff.ok && (
         <View className="border-border gap-2 rounded-lg border p-3">
@@ -115,11 +130,7 @@ export function ItemDetails({ item, onDone }: { item: Item; onDone: () => void }
       />
 
       <View className="gap-2">
-        <Fact
-          label="Amount"
-          value={item.fraction < 1 ? `${formatQty(item.qty * item.fraction, item.unit)} left of ${formatQty(item.qty, item.unit)}` : formatQty(item.qty, item.unit)}
-        />
-        <Fact label="Price" value={formatMoney(item.priceMinor, item.currency)} />
+        <Fact label="Paid" value={formatMoney(item.priceMinor, item.currency)} />
         <View className="flex-row items-center justify-between gap-3">
           <Text className="text-muted-foreground text-sm">Type</Text>
           <Select
@@ -148,10 +159,6 @@ export function ItemDetails({ item, onDone }: { item: Item; onDone: () => void }
         </>
       )}
       <View className="flex-row flex-wrap gap-2">
-        <Button variant="destructive" className="h-11" onPress={() => discard(false)}>
-          <Icon as={Trash2} size={16} className="text-white" />
-          <Text>{item.fraction < 1 ? 'Discard the rest' : 'Discard'}</Text>
-        </Button>
         {beforeDate && (
           <Button variant="outline" className="h-11" onPress={() => discard(true)} accessibilityHint="Discards it and makes future dates for this food shorter">
             <Icon as={Trash2} size={16} />
@@ -166,6 +173,16 @@ export function ItemDetails({ item, onDone }: { item: Item; onDone: () => void }
       <Text className="text-muted-foreground text-xs">
         Freshness follows the expiry date. Always check the package and the food itself. Food-safety tips are guidance, not a guarantee.
       </Text>
+    </View>
+  );
+}
+
+/** One cell of the facts row: a small label over a value. */
+function FactCell({ label, value, border, warn }: { label: string; value: string; border?: boolean; warn?: boolean }) {
+  return (
+    <View className={cn('min-w-0 flex-1 gap-0.5 px-3 py-2', border && 'border-border border-l')}>
+      <Text className="text-muted-foreground text-xs">{label}</Text>
+      <Text className={cn('text-sm font-semibold tabular-nums', warn && 'text-warning')} numberOfLines={1}>{value}</Text>
     </View>
   );
 }

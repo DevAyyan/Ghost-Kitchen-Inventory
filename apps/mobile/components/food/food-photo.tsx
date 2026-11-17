@@ -1,18 +1,11 @@
 import { Icon } from '@/components/ui/icon';
 import type { Category, Stage } from '@/lib/domain/types';
 import { cn } from '@/lib/utils';
-import {
-  Apple, Beef, Carrot, Croissant, CupSoda, Droplets, Egg, Fish, Leaf, Milk, Package, Salad, Snowflake, Soup, Wheat,
-  type LucideIcon,
-} from 'lucide-react-native';
 import * as React from 'react';
 import { Image, View } from 'react-native';
+import { foodIcon } from './food-icon';
 
-/** Neutral line icons for the item's type, used only until the user photographs it. */
-export const CATEGORY_ICON: Record<Category, LucideIcon> = {
-  vegetable: Carrot, fruit: Apple, herbs: Leaf, produce: Salad, dairy: Milk, meat: Beef, fish: Fish, eggs: Egg, leftovers: Soup,
-  bakery: Croissant, dry: Wheat, frozen: Snowflake, condiment: Droplets, drink: CupSoda, other: Package,
-};
+export { CATEGORY_ICON } from './food-icon';
 
 const SIZES = {
   xs: { box: 'h-6 w-6 rounded', icon: 12 },
@@ -24,6 +17,8 @@ const SIZES = {
 interface FoodPhotoProps {
   photoUri?: string;
   category: Category;
+  /** The food's name: picks a more specific icon than the category's when there's no photo. */
+  name?: string;
   size?: keyof typeof SIZES;
   /** Rotting/spoiled photos get a tint so decay reads at a glance (colour is not the only cue). */
   stage?: Stage;
@@ -33,7 +28,7 @@ interface FoodPhotoProps {
 }
 
 /** The user's own photo of the food, or a category icon placeholder. Decorative: callers label it. */
-export function FoodPhoto({ photoUri, category, size = 'md', stage, className, children }: FoodPhotoProps) {
+export function FoodPhoto({ photoUri, category, name, size = 'md', stage, className, children }: FoodPhotoProps) {
   const s = SIZES[size];
   const [failed, setFailed] = React.useState(false);
   React.useEffect(() => setFailed(false), [photoUri]);
@@ -52,7 +47,7 @@ export function FoodPhoto({ photoUri, category, size = 'md', stage, className, c
           className={cn('h-full w-full', stage === 'spoiled' && 'opacity-40', stage === 'rotting' && 'opacity-80')}
         />
       ) : (
-        <Icon as={CATEGORY_ICON[category]} size={s.icon} className={cn('text-muted-foreground', stage === 'spoiled' && 'opacity-50')} />
+        <Icon as={foodIcon(category, name)} size={s.icon} className={cn('text-muted-foreground', stage === 'spoiled' && 'opacity-50')} />
       )}
       {showPhoto && stage === 'rotting' && <View className="bg-stage-rotting/30 absolute inset-0" />}
       {showPhoto && stage === 'spoiled' && <View className="bg-stage-spoiled/30 absolute inset-0" />}

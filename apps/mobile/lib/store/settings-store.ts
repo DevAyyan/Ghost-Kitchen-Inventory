@@ -34,6 +34,8 @@ export interface Settings {
   doorsClosed: Zone[];
   /** Door sounds and the small vibration that goes with them. */
   soundEffects: boolean;
+  /** The fridge screen as the drawn kitchen, or as a "use first" list with swipe actions. */
+  fridgeView: 'kitchen' | 'list';
   /** Doors opened by hand, up to DOOR_HINT_OPENS: the "Tap to open" hint goes once it's been learned. */
   doorOpens: number;
 }
@@ -58,6 +60,7 @@ export function defaultSettings(): Settings {
     doorsClosed: [],
     soundEffects: true,
     doorOpens: 0,
+    fridgeView: 'kitchen',
   };
 }
 
@@ -91,6 +94,7 @@ export function sanitizeSettings(raw: unknown): Settings {
     doorsClosed: Array.isArray(r.doorsClosed) ? ZONE_ORDER.filter((z) => (r.doorsClosed as unknown[]).includes(z)) : d.doorsClosed,
     soundEffects: bool(r.soundEffects, d.soundEffects),
     doorOpens: typeof r.doorOpens === 'number' && Number.isInteger(r.doorOpens) && r.doorOpens >= 0 ? Math.min(r.doorOpens, DOOR_HINT_OPENS) : d.doorOpens,
+    fridgeView: r.fridgeView === 'list' ? 'list' : 'kitchen',
   };
 }
 
@@ -117,7 +121,7 @@ export const useSettings = create<SettingsState>()(
     {
       name: SETTINGS_KEY,
       // Continues the old blob's numbering, so carried-over settings run the migrations below.
-      version: 8,
+      version: 9,
       storage: createJSONStorage(() => safeStorage('settings', { key: LEGACY_KEY, extract: legacySettings })),
       partialize: (s) => ({ settings: s.settings }),
       migrate: (persisted, version) => {
@@ -131,6 +135,8 @@ export const useSettings = create<SettingsState>()(
         if (version < 7 && s.settings) s.settings = { ...s.settings, doorsClosed: [] };
         // v7 had no door sounds: on by default, like a real fridge.
         if (version < 8 && s.settings) s.settings = { ...s.settings, soundEffects: true };
+        // v8 had only the drawn kitchen: keep showing it.
+        if (version < 9 && s.settings) s.settings = { ...s.settings, fridgeView: 'kitchen' };
         return s as unknown as SettingsState;
       },
       merge: (persisted, current) => ({

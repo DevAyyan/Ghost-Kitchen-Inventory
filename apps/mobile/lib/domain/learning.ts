@@ -7,8 +7,36 @@ import type { IsoDate, ItemEvent } from './types';
  * it never touches a date the user confirmed or one printed on the pack.
  */
 
-/** Same food, however it was typed: "Baby Spinach " and "baby spinach" share what was learned. */
-export const foodKey = (name: string) => name.trim().toLowerCase().replace(/\s+/g, ' ');
+/**
+ * Words that describe how a food was bought, not which food it is. Removed so "Baby spinach", "Fresh
+ * spinach" and "spinach" share what was learned. Kept short on purpose: "sweet potato" must stay apart.
+ */
+const PACK_WORDS = new Set([
+  'fresh', 'organic', 'baby', 'free', 'range', 'large', 'small', 'medium', 'loose', 'pack', 'bag', 'value',
+  'premium', 'british', 'local', 'whole', 'ripe', 'bunch', 'of', 'the', 'a',
+]);
+
+/** Naive singular for the last word of a food name: "tomatoes" -> "tomato", "berries" -> "berry". */
+function singularWord(w: string): string {
+  if (w.length <= 3) return w;
+  if (w.endsWith('ies')) return `${w.slice(0, -3)}y`;
+  if (w.endsWith('oes')) return w.slice(0, -2);
+  if (/(ches|shes|sses|xes)$/.test(w)) return w.slice(0, -2);
+  if (w.endsWith('s') && !w.endsWith('ss') && !w.endsWith('us')) return w.slice(0, -1);
+  return w;
+}
+
+/**
+ * Same food, however it was typed: "Baby Spinach ", "spinach" and "Fresh spinach" share what was learned;
+ * "Cherry tomatoes" and "cherry tomato" too. Falls back to the plain name if every word was a pack word.
+ */
+export const foodKey = (name: string) => {
+  const words = name.trim().toLowerCase().replace(/[^a-z0-9\s-]/g, ' ').split(/\s+/).filter(Boolean);
+  const kept = words.filter((w) => !PACK_WORDS.has(w));
+  const use = kept.length ? kept : words;
+  if (use.length) use[use.length - 1] = singularWord(use[use.length - 1]!);
+  return use.join(' ');
+};
 
 /** One early bin could be bad luck; two is a pattern. */
 export const MIN_SAMPLES = 2;

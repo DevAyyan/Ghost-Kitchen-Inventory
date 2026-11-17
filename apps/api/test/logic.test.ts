@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isStaple, sameIngredient, singular } from '../src/match.js';
+import { coversIngredient, isStaple, measureIn, sameIngredient, singular } from '../src/match.js';
 import { splitSteps } from '../src/mealdb.js';
 import { productKey, sanitizeProduct } from '../src/products.js';
 import { plausibleDate } from '../src/receipts.js';
@@ -24,6 +24,40 @@ describe('ingredient matching', () => {
   it('knows pantry staples', () => {
     expect(['Salt', 'Black Pepper', 'olive oil', 'Water'].every(isStaple)).toBe(true);
     expect(isStaple('Peanut Oil Spray')).toBe(false);
+  });
+  it('a cut, variety or label still covers the plain ingredient', () => {
+    expect(coversIngredient('Chicken breast', 'Chicken')).toBe(true);
+    expect(coversIngredient('Cherry tomatoes', 'Tomatoes')).toBe(true);
+    expect(coversIngredient('Free range eggs', 'Eggs')).toBe(true);
+    expect(coversIngredient('Chicken', 'Chicken Thighs')).toBe(true);
+    expect(coversIngredient('Red onion', 'Onion')).toBe(true);
+  });
+  it('but a different food that shares a word never does', () => {
+    for (const [item, ing] of [['Peanut butter', 'Butter'], ['Coconut milk', 'Milk'], ['Chicken stock', 'Chicken'], ['Sweet potato', 'Potatoes'],
+      ['Spring onion', 'Onion'], ['Butter', 'Peanut Butter'], ['Beef tomato', 'Beef'], ['Egg noodles', 'Eggs']]) {
+      expect(coversIngredient(item!, ing!), `${item} vs ${ing}`).toBe(false);
+    }
+  });
+});
+
+describe('recipe measures', () => {
+  it('reads weights, volumes and counts in the fridge item\'s unit', () => {
+    expect(measureIn('300g', 'kg')).toBeCloseTo(0.3);
+    expect(measureIn('1/2 lb', 'g')).toBeCloseTo(226.8);
+    expect(measureIn('2 cups', 'ml')).toBe(480);
+    expect(measureIn('1 1/2 tbsp', 'ml')).toBe(22.5);
+    expect(measureIn('500ml', 'l')).toBe(0.5);
+    expect(measureIn('3 large', 'pcs')).toBe(3);
+    expect(measureIn('2', 'pcs')).toBe(2);
+    expect(measureIn('2-3', 'pcs')).toBe(3);
+    expect(measureIn('½', 'pcs')).toBe(0.5);
+  });
+  it('says "unknown" rather than guessing', () => {
+    expect(measureIn('to taste', 'g')).toBeNull();
+    expect(measureIn('a handful', 'g')).toBeNull();
+    expect(measureIn('2 cups', 'g')).toBeNull();
+    expect(measureIn('300g', 'pcs')).toBeNull();
+    expect(measureIn('', 'kg')).toBeNull();
   });
 });
 

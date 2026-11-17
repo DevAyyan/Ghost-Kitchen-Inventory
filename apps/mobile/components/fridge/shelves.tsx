@@ -13,6 +13,8 @@ interface ShelvesProps {
   items: Item[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  /** Press and hold a tile: quick actions. */
+  onQuick?: (id: string) => void;
   kind: ShelfKind;
   /** Shelves drawn even when empty, so an empty fridge still looks like a fridge. */
   minShelves: number;
@@ -24,7 +26,7 @@ interface ShelvesProps {
  * Splits items into rows that fit the measured width, each row standing on its own shelf. Tiles then
  * stretch to share the row's spare width (so names get more room), up to MAX_STRETCH of their base size.
  */
-export function Shelves({ items, selectedId, onSelect, kind, minShelves, filtered }: ShelvesProps) {
+export function Shelves({ items, selectedId, onSelect, onQuick, kind, minShelves, filtered }: ShelvesProps) {
   const { isPhone } = useLayout();
   const canHover = useCanHover();
   const [width, setWidth] = React.useState(0);
@@ -43,7 +45,7 @@ export function Shelves({ items, selectedId, onSelect, kind, minShelves, filtere
         <View key={idx}>
           <View className="min-h-32 flex-row items-end gap-3 px-3 pt-4">
             {row.length ? (
-              row.map((i) => <FoodTile key={i.id} item={i} selected={i.id === selectedId} onPress={onSelect} hoverCard={canHover} width={tileW} />)
+              row.map((i) => <FoodTile key={i.id} item={i} selected={i.id === selectedId} onPress={onSelect} onLongPress={onQuick} hoverCard={canHover} width={tileW} />)
             ) : idx === 0 ? (
               <Text className="text-muted-foreground self-center pb-4 text-xs italic">
                 {filtered ? 'Nothing matches here' : 'Empty'}

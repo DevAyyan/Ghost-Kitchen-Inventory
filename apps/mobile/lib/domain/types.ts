@@ -34,6 +34,8 @@ export interface Item {
   photoUri?: string;
   category: Category;
   zone: Zone;
+  /** Where this food is usually kept (Gemini's answer, or the category's). Missing on older items. */
+  home?: Zone;
   highRisk: boolean;
   /** Amount bought, in `unit`: 12 (pcs) of eggs, 1 (kg) of tomatoes. What's left is qty × fraction. */
   qty: number;
@@ -73,6 +75,9 @@ export interface ItemEvent {
   type: 'used' | 'discarded';
   name: string;
   category: Category;
+  /** The item this happened to; its photo is shown with the entry (see migrations.eventPhoto). */
+  itemId?: string;
+  /** Only on entries saved before v8 whose item no longer exists. New entries point at their item. */
   photoUri?: string;
   minor: number;
   currency: string;
@@ -113,6 +118,8 @@ export interface PlanEntry {
   ingredients: { name: string; measure: string; staple: boolean }[];
   /** Fridge items this meal will use. */
   itemIds: string[];
+  /** How much of each the recipe calls for, when known (see domain/cooking.ts). */
+  uses?: Record<string, { amount: number; unit: Unit }>;
   cooked: boolean;
 }
 

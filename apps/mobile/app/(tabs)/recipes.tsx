@@ -1,54 +1,32 @@
 import { ConfirmDialog } from '@/components/common/confirm-dialog';
 import { EmptyState } from '@/components/common/empty-state';
 import { Screen } from '@/components/common/screen';
-import { DietFilter } from '@/components/recipes/diet-filter';
 import { PlanSheet } from '@/components/plan/plan-sheet';
+import { cookSummary, recipeItems, rescuedValue } from '@/components/recipes/cook-summary';
+import { DietFilter } from '@/components/recipes/diet-filter';
 import { Pager } from '@/components/recipes/pager';
 import { RecipeCard, RecipeCardSkeleton } from '@/components/recipes/recipe-card';
-import { STAGE_STYLE } from '@/components/stage/stage-style';
+import { AtRiskSummary } from '@/components/recipes/at-risk-summary';
+import { PAGE_SIZE, useRecipeSearch } from '@/components/recipes/use-recipe-search';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
-import { api, ApiError, isApiConfigured, type RemoteRecipe } from '@/lib/api';
-import { STAGE_META } from '@/lib/domain/catalog';
-import { DIETS, dietNotes, type Diet } from '@/lib/domain/diets';
+import { isApiConfigured, type RemoteRecipe } from '@/lib/api';
+import { DIETS, dietNotes } from '@/lib/domain/diets';
 import { dayLabel } from '@/lib/domain/dates';
-import { daysLeft, isAtRisk, isCookable, shortRemaining, stageOf } from '@/lib/domain/expiry';
-import type { Item, Money } from '@/lib/domain/types';
-import { useActiveItems, useCanHover, useLayout } from '@/lib/hooks';
+import { isAtRisk, isCookable, stageOf } from '@/lib/domain/expiry';
+import { useActiveItems, useLayout } from '@/lib/hooks';
 import { useSummarize } from '@/lib/rates';
 import { useApp } from '@/lib/store/app-store';
-import { useSettings } from '@/lib/store/settings-store';
 import { useServer } from '@/lib/store/server-store';
+import { useSettings } from '@/lib/store/settings-store';
 import { toast } from '@/lib/store/toast';
 import { cn } from '@/lib/utils';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { CircleAlert, CircleCheck, RefreshCw, Sparkles, UtensilsCrossed } from 'lucide-react-native';
 import * as React from 'react';
 import { ScrollView, View } from 'react-native';
-
-/** Urgency sent to the server: Fresh 1 … Rotting 4. Spoiled and unsafe food is never sent. */
-const urgencyOf = (i: Item) => STAGE_META[stageOf(i)].weight;
-
-/** Money this recipe rescues: the remaining value of non-fresh items it uses (half for multi-use packs). */
-function rescuedValue(r: RemoteRecipe, byId: Map<string, Item>): Money[] {
-  return r.rescuesItemIds.flatMap((id) => {
-    const i = byId.get(id);
-    return i ? [{ minor: Math.round(i.priceMinor * i.fraction * (i.multiUse ? 0.5 : 1)), currency: i.currency }] : [];
-  });
-}
-
-/** Recipes per page. The server ranks the whole list once; each page is a stable slice of it. */
-const PAGE_SIZE = 10;
-
-type Paging = { page: number; pages: number; total: number };
-type State =
-  | { kind: 'idle' }
-  /** `paging` is the page being left, so the pager stays put (disabled) while the next one loads. */
-  | { kind: 'loading'; paging?: Paging }
-  | { kind: 'done'; recipes: RemoteRecipe[]; warnings: string[]; paging: Paging }
-  | { kind: 'error'; message: string; page: number };
 
 export default function RecipesScreen() {
   const router = useRouter();
@@ -58,70 +36,16 @@ export default function RecipesScreen() {
   const settings = useSettings((s) => s.settings);
   const updateSettings = useSettings((s) => s.update);
   const cookRecipe = useApp((s) => s.cookRecipe);
-  const markUnreachable = useServer((s) => s.markUnreachable);
+  const addPlan = useApp((s) => s.addPlan);
   const summarize = useSummarize();
-  const [state, setState] = React.useState<State>({ kind: 'idle' });
+  const scrollRef = React.useRef<ScrollView>(null);
+  const { state, load, reset } = useRecipeSearch(scrollRef);
   const [cooking, setCooking] = React.useState<RemoteRecipe | null>(null);
   const [planning, setPlanning] = React.useState<RemoteRecipe | null>(null);
-  const addPlan = useApp((s) => s.addPlan);
   const [cooked, setCooked] = React.useState<{ title: string; count: number; saved: string } | null>(null);
-  const reqId = React.useRef(0);
-  const scrollRef = React.useRef<ScrollView>(null);
-  const stateRef = React.useRef(state);
-  stateRef.current = state;
 
   const byId = React.useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
-
-  /** 0 = best-first. "Find again" picks a new one; paging and diet changes keep it, so pages stay stable. */
-  const seedRef = React.useRef(0);
-  /** Recipes shown on page 1 before each "Find again", so the next mix starts with ones not seen yet. */
-  const seenRef = React.useRef<string[]>([]);
-
-  /** Fetches one page (always from the server, so going back shows exactly that page's recipes again). */
-  const load = React.useCallback(async (diets: Diet[], page = 1, opts: { fresh?: boolean; best?: boolean } = {}) => {
-    if (opts.best) { seedRef.current = 0; seenRef.current = []; }
-    const id = ++reqId.current;
-    setCooked(null);
-    const prev = stateRef.current;
-    const shown = prev.kind === 'done' ? prev.recipes.map((r) => r.id) : [];
-    if (opts.fresh) {
-      seedRef.current = 1 + Math.floor(Math.random() * 2_000_000_000);
-      const total = prev.kind === 'done' ? prev.paging.total : 0;
-      const seen = [...new Set([...seenRef.current, ...shown])];
-      // Once (nearly) everything has been seen, start the rotation over instead of showing only repeats.
-      seenRef.current = seen.length + PAGE_SIZE > total ? shown : seen.slice(-60);
-    }
-    setState({ kind: 'loading', paging: prev.kind === 'done' && page !== 1 ? prev.paging : undefined });
-    if (page !== 1) scrollRef.current?.scrollTo({ y: 0, animated: false });
-    const usable = useApp.getState().items.filter((i) => i.status === 'active' && isCookable(i));
-    try {
-      const res = await api.suggestRecipes({
-        items: usable.map((i) => ({ id: i.id, name: i.name, urgency: urgencyOf(i) })),
-        diets, limit: PAGE_SIZE, page, seed: seedRef.current, seen: seenRef.current, useAi: !useSettings.getState().settings.tesseractOnly,
-      });
-      if (id !== reqId.current) return;
-      // The fridge may have changed since the last page (something cooked): stay within the real range.
-      if (res.recipes.length === 0 && page > 1 && res.page.pages > 0) {
-        void load(diets, res.page.pages);
-        return;
-      }
-      setState({
-        kind: 'done', recipes: res.recipes, warnings: res.warnings,
-        paging: { page: res.page.number, pages: res.page.pages, total: res.page.total },
-      });
-      if (opts.fresh) {
-        const ids = res.recipes.map((r) => r.id);
-        // With only a handful of matches, a reshuffle can't bring anything new; say so instead of looking stuck.
-        const same = ids.length > 0 && ids.length === shown.length && ids.every((x) => shown.includes(x));
-        toast(same ? 'These are all the good matches right now. Add groceries or change diets for more.' : 'New recipes found');
-      }
-    } catch (e) {
-      if (id !== reqId.current) return;
-      const err = e instanceof ApiError ? e : null;
-      if (err?.code === 'offline') markUnreachable(err.message);
-      setState({ kind: 'error', message: err?.message ?? 'Could not load recipes.', page });
-    }
-  }, [markUnreachable]);
+  const search = (page = 1, opts?: Parameters<typeof load>[2]) => { setCooked(null); void load(settings.diets, page, opts); };
 
   React.useEffect(() => {
     if (summon === '1') {
@@ -135,7 +59,6 @@ export default function RecipesScreen() {
   const dietLabel = settings.diets.map((d) => DIETS[d].label).join(' + ');
   const configured = isApiConfigured();
   const offline = useServer((s) => s.reachable === false) && configured;
-  const canHover = useCanHover();
   const checkServer = useServer((s) => s.check);
   // Find recipes is disabled while offline, so keep checking: it comes back on its own when the server does.
   React.useEffect(() => {
@@ -144,15 +67,22 @@ export default function RecipesScreen() {
     return () => clearInterval(id);
   }, [offline, checkServer]);
 
+  // Don't make people press a button to see recipes: when something is turning, find them straight away.
+  const autoLoaded = React.useRef(false);
+  React.useEffect(() => {
+    if (autoLoaded.current || state.kind !== 'idle' || !configured || offline || atRisk.length === 0) return;
+    autoLoaded.current = true;
+    void load(useSettings.getState().settings.diets, 1, { best: true });
+  }, [state.kind, configured, offline, atRisk.length, load]);
+
   const confirmCook = () => {
     if (!cooking) return;
-    const itemIds = cooking.ingredients.flatMap((ing) => (ing.itemId && !ing.staple ? [ing.itemId] : []));
-    const res = cookRecipe({ title: cooking.title, itemIds });
+    const res = cookRecipe({ title: cooking.title, itemIds: recipeItems(cooking, byId).map((i) => i.id), uses: cooking.uses });
     const saved = summarize(res.saved).text;
     setCooked({ title: cooking.title, count: res.count, saved });
-    toast(`${res.count} ingredient${res.count === 1 ? '' : 's'} laid to rest · ${saved} rescued`);
+    toast(`${cooking.title} cooked · ${saved} of food rescued`);
     setCooking(null);
-    setState({ kind: 'idle' });
+    reset();
   };
 
   return (
@@ -164,7 +94,7 @@ export default function RecipesScreen() {
         <Button
           className="h-11"
           // First search: the best matches. "Find again": a fresh mix of other good ones.
-          onPress={() => void load(settings.diets, 1, state.kind === 'done' ? { fresh: true } : { best: true })}
+          onPress={() => search(1, state.kind === 'done' ? { fresh: true } : { best: true })}
           // Offline it could only fail; the banner above says why.
           disabled={state.kind === 'loading' || !configured || offline || atRisk.length === 0}>
           <Icon as={state.kind === 'done' ? RefreshCw : Sparkles} size={16} className="text-primary-foreground" />
@@ -191,7 +121,7 @@ export default function RecipesScreen() {
       {cooked && (
         <Alert icon={CircleCheck} iconClassName="text-stage-fresh" className="border-stage-fresh/40">
           <AlertDescription className="text-foreground">
-            {cooked.title} cooked. {cooked.count} ingredient{cooked.count === 1 ? '' : 's'} laid to rest, about {cooked.saved} of food rescued.
+            {cooked.title} cooked. {cooked.count} ingredient{cooked.count === 1 ? '' : 's'} updated, about {cooked.saved} of food rescued.
           </AlertDescription>
         </Alert>
       )}
@@ -207,32 +137,10 @@ export default function RecipesScreen() {
         <Alert icon={CircleAlert} variant="destructive">
           <AlertTitle>Couldn't load recipes</AlertTitle>
           <AlertDescription>{state.message}</AlertDescription>
-          <Button variant="outline" className="mb-2 ml-6 mt-2 h-11 self-start" onPress={() => void load(settings.diets, state.page)}><Text>Try again</Text></Button>
+          <Button variant="outline" className="mb-2 ml-6 mt-2 h-11 self-start" onPress={() => search(state.page)}><Text>Try again</Text></Button>
         </Alert>
       ) : state.kind === 'idle' ? (
-        <View className="border-border bg-card gap-3 rounded-lg border p-4">
-          <Text role="heading" aria-level={2} className="font-semibold">
-            {atRisk.length ? `${atRisk.length} ingredient${atRisk.length === 1 ? ' is' : 's are'} close to turning` : 'Nothing urgent right now'}
-          </Text>
-          <View className="flex-row flex-wrap gap-1.5">
-            {atRisk.map((i) => {
-              const s = STAGE_STYLE[stageOf(i)];
-              return (
-                <View key={i.id} className={cn('flex-row items-center gap-1 rounded-full border px-2 py-1', s.border)}>
-                  <Icon as={s.icon} size={12} className={s.text} />
-                  <Text className="text-xs">{i.name} · {shortRemaining(daysLeft(i))}</Text>
-                </View>
-              );
-            })}
-          </View>
-          <Text className="text-muted-foreground text-sm">
-            {!atRisk.length
-              ? 'Recipes appear here when food in your fridge starts to turn.'
-              : offline
-                ? 'Recipes come from your Ghost Kitchen server. Once it is back, Find recipes looks for ones that use these first.'
-                : `${canHover ? 'Click' : 'Tap'} Find recipes and we'll look for ones that use these first.`}
-          </Text>
-        </View>
+        <AtRiskSummary items={atRisk} offline={offline} />
       ) : state.recipes.length === 0 ? (
         <EmptyState
           icon={UtensilsCrossed}
@@ -251,12 +159,26 @@ export default function RecipesScreen() {
               : `${state.paging.total} recipe${state.paging.total === 1 ? '' : 's'}${state.paging.total < PAGE_SIZE ? ' (all the good matches)' : ''}`}
             {' · '}Recipes and photos from TheMealDB{settings.diets.length ? ` · ${dietLabel}, checked by Gemini` : ''}
           </Text>
+          {state.paging.page === 1 && state.recipes[0] && (
+            <View className="gap-2">
+              <Text role="heading" aria-level={2} className="text-lg font-semibold">Tonight</Text>
+              <RecipeCard
+                recipe={state.recipes[0]}
+                items={byId}
+                saves={summarize(rescuedValue(state.recipes[0], byId)).text}
+                onCook={() => setCooking(state.recipes[0]!)}
+                onPlan={() => setPlanning(state.recipes[0]!)}
+                defaultOpen
+              />
+              {state.recipes.length > 1 && <Text role="heading" aria-level={2} className="pt-2 text-lg font-semibold">More ideas</Text>}
+            </View>
+          )}
           <View className={cn('gap-4', !isPhone && 'flex-row flex-wrap items-start')}>
-            {state.recipes.map((r) => (
+            {(state.paging.page === 1 ? state.recipes.slice(1) : state.recipes).map((r) => (
               <RecipeCard key={r.id} recipe={r} items={byId} saves={summarize(rescuedValue(r, byId)).text} onCook={() => setCooking(r)} onPlan={() => setPlanning(r)} defaultOpen={false} />
             ))}
           </View>
-          <Pager page={state.paging.page} pages={state.paging.pages} onChange={(p) => void load(settings.diets, p)} />
+          <Pager page={state.paging.page} pages={state.paging.pages} onChange={(p) => search(p)} />
         </>
       )}
 
@@ -270,7 +192,8 @@ export default function RecipesScreen() {
           addPlan({
             date, title: planning.title, recipeId: planning.id, thumb: planning.thumb, sourceUrl: planning.sourceUrl,
             ingredients: planning.ingredients.map((g) => ({ name: g.name, measure: g.measure, staple: g.staple })),
-            itemIds: [...new Set(planning.ingredients.flatMap((g) => (g.itemId && !g.staple ? [g.itemId] : [])))],
+            itemIds: recipeItems(planning, byId).map((i) => i.id),
+            uses: planning.uses,
           });
           toast(`${planning.title} planned for ${dayLabel(date).toLowerCase()}. Missing ingredients are in Plan & shop.`);
         }}
@@ -280,21 +203,10 @@ export default function RecipesScreen() {
         onOpenChange={(o) => !o && setCooking(null)}
         title={cooking ? `Cook ${cooking.title}?` : ''}
         description={cooking ? cookSummary(cooking, byId) : undefined}
-        confirmLabel="Lay them to rest"
+        confirmLabel="Cook it"
         cancelLabel="Not yet"
         onConfirm={confirmCook}
       />
     </Screen>
   );
-}
-
-function cookSummary(r: RemoteRecipe, byId: Map<string, Item>): string {
-  const used = [...new Set(r.ingredients.flatMap((g) => (g.itemId && !g.staple ? [g.itemId] : [])))].map((id) => byId.get(id)).filter((i): i is Item => !!i);
-  const all = used.filter((i) => !i.multiUse).map((i) => i.name);
-  const half = used.filter((i) => i.multiUse).map((i) => i.name);
-  return [
-    all.length ? `Used up: ${all.join(', ')}.` : '',
-    half.length ? `Half used: ${half.join(', ')}.` : '',
-    r.missing.length ? `You'll still need ${r.missing.join(', ')}.` : '',
-  ].filter(Boolean).join(' ');
 }

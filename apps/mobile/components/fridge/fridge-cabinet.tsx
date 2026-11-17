@@ -20,6 +20,8 @@ interface FridgeCabinetProps {
   allItems: Item[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  /** Press and hold a tile: quick actions. */
+  onQuick?: (id: string) => void;
   filtered: boolean;
   /** Changes whenever the search or stage filter changes. */
   filterKey: string;
@@ -43,7 +45,7 @@ type Focus = { zone: Zone; to: 'door' | 'close' } | null;
  * open and remember what you leave shut. A search or stage filter opens the doors with matches (and shuts
  * the rest) without changing what's remembered. The pantry stands beside the fridge on wide screens.
  */
-export function FridgeCabinet({ items, allItems, selectedId, onSelect, filtered, filterKey, belowPantry }: FridgeCabinetProps) {
+export function FridgeCabinet({ items, allItems, selectedId, onSelect, onQuick, filtered, filterKey, belowPantry }: FridgeCabinetProps) {
   const { width } = useLayout();
   const sideBySide = width >= 1024;
   const closed = useSettings((s) => s.settings.doorsClosed);
@@ -76,7 +78,7 @@ export function FridgeCabinet({ items, allItems, selectedId, onSelect, filtered,
 
   const shelves = (zone: Zone, kind: ShelfKind, minShelves: number) => {
     const list = (
-      <Shelves items={inZone(zone).sort(byUrgency)} selectedId={selectedId} onSelect={onSelect} kind={kind} minShelves={minShelves} filtered={filtered} />
+      <Shelves items={inZone(zone).sort(byUrgency)} selectedId={selectedId} onSelect={onSelect} onQuick={onQuick} kind={kind} minShelves={minShelves} filtered={filtered} />
     );
     if (!sideBySide) return list;
     return (

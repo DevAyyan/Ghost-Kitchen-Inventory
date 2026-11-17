@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { isStaple, sameIngredient } from './match.js';
+import { coversIngredient, isStaple, measureIn } from './match.js';
 import type { MealDb, MealDetail } from './mealdb.js';
 import { productKey, type ProductService } from './products.js';
 import { DIET_EXCLUDES, Diet, type Tag } from './schemas.js';
@@ -8,6 +8,8 @@ export const SuggestRequest = z.object({
   items: z.array(z.object({
     id: z.string().min(1).max(64),
     name: z.string().min(1).max(80),
+    /** How the item is measured, so recipe amounts can be read against it. Optional for older clients. */
+    unit: z.enum(['pcs', 'kg', 'g', 'l', 'ml']).optional(),
     /** 1 fresh, 2 aging, 3 expiring, 4 rotting. The client never sends spoiled or unsafe food. */
     urgency: z.number().min(1).max(4),
   })).max(300),
@@ -42,6 +44,11 @@ export interface Recipe {
   ingredients: RecipeIngredient[];
   /** Fridge items (aging or worse) this recipe uses up. */
   rescuesItemIds: string[];
+  /**
+   * How much of each matched fridge item the recipe calls for, when its measure can be read in that item's
+   * unit ("300 g" against a kg bag, "2" against 6 eggs). Missing = unknown, so the app asks.
+   */
+  uses: Record<string, { amount: number; unit: 'pcs' | 'kg' | 'g' | 'l' | 'ml' }>;
   missing: string[];
   score: number;
 }
@@ -61,6 +68,16 @@ const SEEDS = 6;
  * Details are cached for a day, so after the first page, the rest cost no TheMealDB calls.
  */
 const POOL = 60;
+/**
+ * Recipes needing more than this many things you don't have are left out: rescuing one cucumber is not
+ * worth a 16-item shop. Staples (salt, pepper, oil, water) never count as missing.
+ */
+const MAX_MISSING = 5;
+/**
+ * Each missing ingredient costs about as much as rescuing one expiring item (urgency 3, worth 9), so a
+ * recipe that uses what you have beats one that sends you shopping, even if it rescues a bit more.
+ */
+const MISSING_COST = 4;
 
 /** A stable number in [0, 1) for one meal under one seed (FNV-1a), so a seed always ranks the same way. */
 function shakeOf(seed: number, id: string): number {
@@ -91,7 +108,7 @@ export function createRecipeService(mealdb: MealDb, products: ProductService) {
       const seeds: { item: (typeof seedsWanted)[number]; mealNames: string[] }[] = [];
       const unmatchedSeeds: string[] = [];
       for (const item of seedsWanted) {
-        const mealNames = names.filter((n) => sameIngredient(n, item.name));
+        const mealNames = names.filter((n) => coversIngredient(item.name, n));
         if (mealNames.length > 0) seeds.push({ item, mealNames }); else unmatchedSeeds.push(item.name);
       }
       if (seeds.length === 0) {
@@ -135,20 +152,34 @@ export function createRecipeService(mealdb: MealDb, products: ProductService) {
 
       // 4. Score against everything in the fridge, not just the seeds.
       const urgency = new Map(req.items.map((i) => [i.id, i.urgency]));
+      const units = new Map(req.items.map((i) => [i.id, i.unit]));
       const scored: Recipe[] = allowed.map((m) => {
         const ingredients: RecipeIngredient[] = m.ingredients.map((ing) => {
           if (isStaple(ing.name)) return { ...ing, staple: true, inStock: true, itemId: null };
-          const match = req.items.filter((i) => sameIngredient(i.name, ing.name)).sort((a, b) => b.urgency - a.urgency)[0];
+          const match = req.items.filter((i) => coversIngredient(i.name, ing.name)).sort((a, b) => b.urgency - a.urgency)[0];
           return { ...ing, staple: false, inStock: !!match, itemId: match?.id ?? null };
         });
         const rescues = [...new Set(ingredients.flatMap((i) => (i.itemId && (urgency.get(i.itemId) ?? 0) >= 2 ? [i.itemId] : [])))];
         const missing = ingredients.filter((i) => !i.staple && !i.inStock).map((i) => i.name);
+        // Amount used per fridge item, summed when two lines use the same item ("2 eggs" + "1 egg yolk").
+        const uses: Recipe['uses'] = {};
+        const unknown = new Set<string>();
+        for (const ing of ingredients) {
+          if (!ing.itemId) continue;
+          const unit = units.get(ing.itemId);
+          const amount = unit ? measureIn(ing.measure, unit) : null;
+          if (amount === null || !unit) { unknown.add(ing.itemId); continue; }
+          uses[ing.itemId] = { amount: (uses[ing.itemId]?.amount ?? 0) + amount, unit };
+        }
+        // Half-known is unknown: the app asks rather than recording too little.
+        for (const id of unknown) delete uses[id];
         return {
           id: m.id, title: m.title, category: m.category, area: m.area, tags: m.tags,
           thumb: m.thumb ? `${m.thumb}/medium` : null, youtube: m.youtube, sourceUrl: m.sourceUrl, steps: m.steps,
-          ingredients, rescuesItemIds: rescues, missing, score: 0,
+          ingredients, rescuesItemIds: rescues, uses, missing, score: 0,
         };
-      }).filter((r) => r.rescuesItemIds.length > 0);
+      // A rescue that needs a big shop isn't a rescue: drop recipes missing more than MAX_MISSING things.
+      }).filter((r) => r.rescuesItemIds.length > 0 && r.missing.length <= MAX_MISSING);
 
       // 5. Rank the whole pool greedily: reward urgent food, penalise shopping, discount food an earlier
       //    pick already rescues (so each page covers different food). Then hand out one page of it.
@@ -159,7 +190,7 @@ export function createRecipeService(mealdb: MealDb, products: ProductService) {
         for (const r of scored) {
           if (picked.includes(r)) continue;
           r.score = r.rescuesItemIds.reduce((a, id) => a + (covered.has(id) ? 0.3 : 1) * weight(urgency.get(id) ?? 1), 0)
-            - 1.5 * r.missing.length
+            - MISSING_COST * r.missing.length
             // "Find again": a shake worth at most about two missing ingredients. Close calls change
             // places; a recipe that rescues far more urgent food still wins.
             + shake(r.id) * 3

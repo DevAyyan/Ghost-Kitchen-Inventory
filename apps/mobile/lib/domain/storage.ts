@@ -37,6 +37,8 @@ export function planMove(item: Item, to: Zone, now: IsoDate = today()): MovePlan
     return { ok: false, to, reason: 'Freezing does not reverse spoilage. Use it today or discard it.' };
   }
   const target = life[to];
+  // High-risk food never goes in the pantry, whatever a shelf-life table says (food-safety floor).
+  if (to === 'pantry' && item.highRisk) return { ok: false, to, reason: BLOCK_REASON(item, to) };
   if (target === null) return { ok: false, to, reason: BLOCK_REASON(item, to) };
 
   if (to === 'freezer') {

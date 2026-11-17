@@ -1,7 +1,7 @@
 import { ConfirmDialog } from '@/components/common/confirm-dialog';
 import { EmptyState } from '@/components/common/empty-state';
 import { Screen } from '@/components/common/screen';
-import { ItemChip } from '@/components/plan/item-chip';
+import { ItemsLine } from '@/components/food/items-line';
 import { MealRow } from '@/components/plan/meal-row';
 import { PlanSheet } from '@/components/plan/plan-sheet';
 import { ShoppingCard } from '@/components/plan/shopping-card';
@@ -72,7 +72,7 @@ export default function PlanScreen() {
             <CardTitle role="heading" aria-level={2}>Turning, with no meal planned</CardTitle>
           </CardHeader>
           <CardContent className="gap-3 px-4">
-            <View className="flex-row flex-wrap gap-1.5">{unplanned.map((i) => <ItemChip key={i.id} item={i} />)}</View>
+            <ItemsLine items={unplanned} />
             <View className="flex-row flex-wrap gap-2">
               <Button variant="outline" className="h-11" onPress={() => router.navigate({ pathname: '/recipes', params: { summon: '1' } })}>
                 <Icon as={Sparkles} size={16} />

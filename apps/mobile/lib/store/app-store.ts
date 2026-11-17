@@ -3,17 +3,19 @@ import { daysBetween, today } from '@/lib/domain/dates';
 import { type Draft, parsePrice, parseQty } from '@/lib/domain/draft';
 import { afterSniff, makeItem, newId, stageOf } from '@/lib/domain/expiry';
 import { addToList } from '@/lib/domain/shopping';
+import { cookAmount } from '@/lib/domain/cooking';
 import { HIGH_RISK_CATEGORIES } from '@/lib/domain/catalog';
-import type { Category, IsoDate, Item, ItemEvent, PlanEntry, Receipt, ShoppingItem, Stage, Zone } from '@/lib/domain/types';
+import type { Category, IsoDate, Item, ItemEvent, PlanEntry, Receipt, ShoppingItem, Stage, Unit, Zone } from '@/lib/domain/types';
 import { deleteFoodPhoto } from '@/lib/photos';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import { APP_STORE_VERSION, migrateAppData, pruneFinished } from './migrations';
 import { sampleData } from './seed';
 import { useSettings } from './settings-store';
 import { safeStorage } from './storage';
 
-/** A fridge item a recipe uses, as returned by the recipe API. */
-export interface CookPlan { title: string; itemIds: string[] }
+/** A fridge item a recipe uses, as returned by the recipe API. `uses`: amounts the recipe calls for. */
+export interface CookPlan { title: string; itemIds: string[]; uses?: Record<string, { amount: number; unit: Unit }> }
 
 interface AppState {
   items: Item[];
@@ -87,7 +89,7 @@ export const useApp = create<AppState>()(
         const value = Math.round(it.priceMinor * portion);
         const fraction = finished ? 0 : it.fraction - portion;
         const event: ItemEvent = {
-          id: newId('e'), type: 'used', name: it.name, category: it.category, photoUri: it.photoUri,
+          id: newId('e'), type: 'used', name: it.name, category: it.category, itemId: it.id,
           minor: value, currency: it.currency, stage, date: today(), amount: finished ? left : used, unit: it.unit,
           ...(finished ? { finished: true } : {}),
         };
@@ -105,7 +107,7 @@ export const useApp = create<AppState>()(
         // Only a date the user didn't push back says how long the food really lasts.
         const teaches = !!opts?.wentOff && it.expirySource !== 'sniff' && it.expirySource !== 'user';
         const event: ItemEvent = {
-          id: newId('e'), type: 'discarded', name: it.name, category: it.category, photoUri: it.photoUri, minor: value,
+          id: newId('e'), type: 'discarded', name: it.name, category: it.category, itemId: it.id, minor: value,
           amount: it.qty * it.fraction, unit: it.unit,
           currency: it.currency, stage: stageOf(it), date: today(), purchased: it.purchased,
           shelfDays: it.shelfDays, ...(teaches ? { wentOff: true } : {}),
@@ -191,10 +193,7 @@ export const useApp = create<AppState>()(
         for (const id of [...new Set(plan.itemIds)]) {
           const it = get().items.find((i) => i.id === id);
           if (!it) continue;
-          // Packs that last several meals (Gemini's multiUse) are half used; the rest are used up.
-          const left = it.qty * it.fraction;
-          const half = it.unit === 'pcs' ? Math.max(1, Math.round(left / 2)) : left / 2;
-          const res = get().consumeItem(id, it.multiUse ? half : left);
+          const res = get().consumeItem(id, cookAmount(it, plan.uses?.[id]).amount);
           if (!res) continue;
           count++;
           if (res.stage !== 'fresh') saved.push({ minor: res.value, currency: it.currency });
@@ -233,7 +232,7 @@ export const useApp = create<AppState>()(
       cookPlan: (id) => {
         const entry = get().plan.find((p) => p.id === id);
         if (!entry || entry.cooked) return null;
-        const res = get().cookRecipe({ title: entry.title, itemIds: entry.itemIds });
+        const res = get().cookRecipe({ title: entry.title, itemIds: entry.itemIds, uses: entry.uses });
         set((s) => ({ plan: s.plan.map((p) => (p.id === id ? { ...p, cooked: true } : p)) }));
         return res;
       },
@@ -249,7 +248,7 @@ export const useApp = create<AppState>()(
     }),
     {
       name: 'ghost-kitchen',
-      version: 7,
+      version: APP_STORE_VERSION,
       storage: createJSONStorage(() => safeStorage('fridge')),
       // Only data. Settings are in their own store (settings-store.ts), which copied them out of here.
       partialize: ({ items, receipts, events, recentCurrencies, storeHints, shopping, plan }) => ({ items, receipts, events, recentCurrencies, storeHints, shopping, plan }),
@@ -257,37 +256,15 @@ export const useApp = create<AppState>()(
         const { settings: _old, ...data } = (persisted ?? {}) as Partial<AppState> & { settings?: unknown };
         return { ...current, ...data };
       },
-      migrate: (persisted, version) => {
-        const s = persisted as {
-          items?: Record<string, unknown>[];
-          events?: Record<string, unknown>[];
-        };
-        // v1 stored emoji and had no expiry confirmation. Earlier dates came from the user's own
-        // receipts, so treat them as confirmed rather than nagging about every old item.
-        if (version < 2) {
-          s.items = (s.items ?? []).map(({ emoji: _e, ...i }) => ({ ...i, expiryConfirmed: i.expiryConfirmed ?? true }));
-          s.events = (s.events ?? []).map(({ emoji: _e, ...e }) => ({ ...e, category: e.category ?? 'other' }));
+      migrate: (persisted, version) => migrateAppData(persisted, version) as unknown as AppState,
+      // Old finished items (and their photos) go once no recent history needs them.
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+        const { items, photos } = pruneFinished(state.items, state.events, today());
+        if (items !== state.items) {
+          photos.forEach(deleteFoodPhoto);
+          useApp.setState({ items });
         }
-        // v2 had six fridge sections. (Its settings changes are migrated in settings-store.ts.)
-        if (version < 3) {
-          s.items = (s.items ?? []).map((i) => ({
-            ...i,
-            zone: i.zone === 'freezer' || i.zone === 'pantry' ? i.zone : 'fridge',
-          }));
-        }
-        // v3 had a fake AI quota counter.
-        if (version < 4) delete (s as Record<string, unknown>).quota;
-        // v4 had no units: quantities were plain counts.
-        if (version < 5) {
-          s.items = (s.items ?? []).map((i) => ({ ...i, unit: i.unit ?? 'pcs', qty: Number(i.qty) > 0 ? i.qty : 1 }));
-        }
-        // v6 had no shopping list or meal plan.
-        if (version < 7) {
-          const r = s as Record<string, unknown>;
-          r.shopping = Array.isArray(r.shopping) ? r.shopping : [];
-          r.plan = Array.isArray(r.plan) ? r.plan : [];
-        }
-        return s as unknown as AppState;
       },
     }
   )

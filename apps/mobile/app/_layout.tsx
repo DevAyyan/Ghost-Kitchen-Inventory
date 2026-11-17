@@ -7,6 +7,7 @@ import { isApiConfigured } from '@/lib/api';
 import { useHydrated } from '@/lib/hooks';
 import { useSummarize } from '@/lib/rates';
 import { startHouseholdSync } from '@/lib/sync';
+import { startClock } from '@/lib/store/clock';
 import { onDigestTapped, syncDigestNotifications } from '@/lib/notifications';
 import { useApp } from '@/lib/store/app-store';
 import { useSettings } from '@/lib/store/settings-store';
@@ -50,6 +51,7 @@ export default function RootLayout() {
   }, [hydrated, items, events, receipts, notifyDigest, notifyWeekly, notifyHour, summarize]);
   // Shared household: keep this device's copy in step with the others.
   useEffect(() => (hydrated ? startHouseholdSync() : undefined), [hydrated]);
+  useEffect(() => startClock(), []);
   const router = useRouter();
   useEffect(() => {
     let off = () => {};

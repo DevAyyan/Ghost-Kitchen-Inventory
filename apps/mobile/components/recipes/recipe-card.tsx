@@ -50,7 +50,7 @@ export function RecipeCard({ recipe, items, saves, onCook, onPlan, defaultOpen }
             const s = STAGE_STYLE[stageOf(i)];
             return (
               <View key={i.id} accessibilityLabel={`${i.name}, ${s.label}`} className={cn('flex-row items-center gap-1 rounded-full border px-2 py-0.5', s.border)}>
-                <FoodPhoto photoUri={i.photoUri} category={i.category} size="xs" />
+                <FoodPhoto photoUri={i.photoUri} category={i.category} name={i.name} size="xs" />
                 <Text className="text-xs">{i.name}</Text>
                 <Icon as={s.icon} size={11} className={s.text} />
               </View>

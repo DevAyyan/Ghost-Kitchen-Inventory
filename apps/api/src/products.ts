@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { AiError, type Gemini } from './gemini.js';
-import { type Category, CATEGORY_RULE, ProductInfo, type Zone } from './schemas.js';
+import { type Category, CATEGORY_RULE, ProductInfo, type Tag, type Zone } from './schemas.js';
 import type { Store } from './store.js';
 
 /** Stable cache key: lowercase, no accents or punctuation, single spaces. */
@@ -11,9 +11,13 @@ export function productKey(name: string): string {
 /** Categories where spoilage is a food-safety risk. A floor under whatever the model says. */
 const ALWAYS_HIGH_RISK = new Set<Category>(['meat', 'fish', 'eggs', 'dairy', 'leftovers']);
 
+/** Categories that always carry a diet tag, whatever the model listed (diet filters fail closed on them). */
+const CATEGORY_TAGS: Partial<Record<Category, Tag>> = { meat: 'meat', fish: 'fish', dairy: 'dairy', eggs: 'egg' };
+
 /**
  * Sanity-checks a model answer. Gemini supplies the facts; this only enforces safety invariants and
- * internal consistency: high-risk food is never "pantry-stable", and the home zone must be usable.
+ * internal consistency: high-risk food is never "pantry-stable", the home zone must be usable, and a
+ * food's category always carries its diet tag (meat is meat even if the model forgot to say so).
  * Returns null if nothing usable is left.
  */
 export function sanitizeProduct(info: ProductInfo): ProductInfo | null {
@@ -30,7 +34,7 @@ export function sanitizeProduct(info: ProductInfo): ProductInfo | null {
     homeZone,
     highRisk,
     shelfLifeDays: life,
-    tags: [...new Set(info.tags)],
+    tags: [...new Set([...info.tags, ...(CATEGORY_TAGS[info.category] ? [CATEGORY_TAGS[info.category]!] : [])])],
     tip: info.tip.trim(),
   };
 }
