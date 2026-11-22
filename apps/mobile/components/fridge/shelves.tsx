@@ -1,13 +1,12 @@
 import { Text } from '@/components/ui/text';
-import type { Item } from '@/lib/domain/types';
+import type { Item, Zone } from '@/lib/domain/types';
 import { useCanHover, useLayout } from '@/lib/hooks';
-import { MATERIALS } from '@/lib/theme';
+import { PIXEL } from '@/lib/theme';
 import * as React from 'react';
 import { View } from 'react-native';
-import { FoodTile, TILE_GAP, tileWidth } from './food-tile';
-import { Gradient } from './gradient';
+import { FoodTile, tileGap, tileWidth } from './food-tile';
+import { PixelTexture, PX } from './pixel-effects';
 
-export type ShelfKind = 'glass' | 'frost' | 'wood';
 
 interface ShelvesProps {
   items: Item[];
@@ -15,7 +14,8 @@ interface ShelvesProps {
   onSelect: (id: string) => void;
   /** Press and hold a tile: quick actions. */
   onQuick?: (id: string) => void;
-  kind: ShelfKind;
+  /** Which compartment: picks the shelf colours. */
+  kind: Zone;
   /** Shelves drawn even when empty, so an empty fridge still looks like a fridge. */
   minShelves: number;
   /** True when a filter or search is active (changes the empty message). */
@@ -31,24 +31,32 @@ export function Shelves({ items, selectedId, onSelect, onQuick, kind, minShelves
   const canHover = useCanHover();
   const [width, setWidth] = React.useState(0);
   const base = tileWidth(isPhone);
-  const perRow = width === 0 ? 4 : Math.max(1, Math.floor((width - ROW_PADDING + TILE_GAP) / (base + TILE_GAP)));
-  const fill = width === 0 ? base : Math.floor((width - ROW_PADDING - TILE_GAP * (perRow - 1)) / perRow);
+  const gap = tileGap(isPhone);
+  const perRow = width === 0 ? 4 : Math.max(1, Math.floor((width - ROW_PADDING + gap) / (base + gap)));
+  const fill = width === 0 ? base : Math.floor((width - ROW_PADDING - gap * (perRow - 1)) / perRow);
+  const pixel = PIXEL[kind];
   const tileW = Math.max(base, Math.min(fill, Math.round(base * MAX_STRETCH)));
 
   const rows: Item[][] = [];
   for (let i = 0; i < items.length; i += perRow) rows.push(items.slice(i, i + perRow));
   while (rows.length < minShelves) rows.push([]);
+  const firstEmpty = rows.findIndex((r) => r.length === 0);
 
   return (
     <View onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
       {rows.map((row, idx) => (
         <View key={idx}>
-          <View className="min-h-32 flex-row items-end gap-3 px-3 pt-4">
+          <View className="min-h-28 flex-row items-end gap-2 px-3 pt-4 md:min-h-32 md:gap-3">
             {row.length ? (
               row.map((i) => <FoodTile key={i.id} item={i} selected={i.id === selectedId} onPress={onSelect} onLongPress={onQuick} hoverCard={canHover} width={tileW} />)
             ) : idx === 0 ? (
-              <Text className="text-muted-foreground self-center pb-4 text-xs italic">
+              <Text className="self-center pb-4 text-xs italic" style={{ color: pixel.insideText }}>
                 {filtered ? 'Nothing matches here' : 'Empty'}
+              </Text>
+            ) : idx === firstEmpty && !filtered ? (
+              // The spare shelves under a few items say what they're for, instead of just being bare.
+              <Text className="self-center pb-4 text-xs italic" style={{ color: pixel.insideText, opacity: 0.75 }}>
+                Room for more
               </Text>
             ) : null}
           </View>
@@ -62,38 +70,18 @@ export function Shelves({ items, selectedId, onSelect, onQuick, kind, minShelves
 const ROW_PADDING = 24; // px-3 on both sides
 /** Tiles never grow past this multiple of their base width, so a sparse wide shelf doesn't get giant tiles. */
 const MAX_STRETCH = 1.5;
-/** Height of one shelf row (tile + `pt-4` + the shelf board and its shadow), for capping compartments. */
-export const SHELF_ROW_HEIGHT = 148;
 
-/** The board the items stand on, plus the soft shadow it casts on whatever is below. */
-function ShelfSurface({ kind }: { kind: ShelfKind }) {
+/** A pixel board: lit top edge, face, dark lip, then a dithered shadow on the wall below. */
+function ShelfSurface({ kind }: { kind: Zone }) {
+  const pixel = PIXEL[kind];
   return (
     <View aria-hidden importantForAccessibility="no-hide-descendants">
-      {kind === 'wood' ? (
-        <Gradient colors={MATERIALS.woodPlank} className="mx-1 h-3 rounded-sm">
-          <View className="absolute inset-x-0 top-1 h-px" style={{ backgroundColor: MATERIALS.woodGrain }} />
-          <View className="absolute inset-x-6 top-2 h-px" style={{ backgroundColor: MATERIALS.woodGrain }} />
-        </Gradient>
-      ) : (
-        <Gradient colors={kind === 'frost' ? MATERIALS.frost : MATERIALS.glass} className="mx-1 h-2 rounded-sm">
-          {kind === 'frost' && <FrostSpecks />}
-        </Gradient>
-      )}
-      <Gradient colors={MATERIALS.shelfShadow} className="mx-2 h-2" />
+      <View style={{ height: 3, backgroundColor: pixel.shelfTop }} />
+      <View style={{ height: 6, backgroundColor: pixel.shelf }} />
+      <View style={{ height: 3, backgroundColor: pixel.edge }} />
+      <View style={{ height: 6 }}>
+        <PixelTexture source={PX.shelfShadow} />
+      </View>
     </View>
-  );
-}
-
-function FrostSpecks() {
-  return (
-    <>
-      {[8, 22, 41, 58, 73, 90].map((left) => (
-        <View
-          key={left}
-          className="absolute top-0.5 h-0.5 w-0.5 rounded-full"
-          style={{ left: `${left}%`, backgroundColor: MATERIALS.frostSpeck }}
-        />
-      ))}
-    </>
   );
 }

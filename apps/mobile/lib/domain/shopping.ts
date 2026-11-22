@@ -1,3 +1,4 @@
+import { daysLeft, isCookable, remainingText, stageOf } from './expiry';
 import { addDays } from './dates';
 import { foodKey } from './learning';
 import type { IsoDate, Item, ItemEvent, PlanEntry, ShoppingItem } from './types';
@@ -47,4 +48,26 @@ export function missingForPlan(plan: PlanEntry[], items: Item[], list: ShoppingI
     }
   }
   return out;
+}
+
+/** The list as plain text for sharing: what's still to buy, one per line, with amounts. Ticked lines are left out. */
+export function shoppingText(list: ShoppingItem[]): string {
+  const open = list.filter((l) => !l.checked);
+  return ['Shopping list', ...open.map((l) => `- ${l.name}${l.amount ? ` (${l.amount})` : ''}`)].join('\n');
+}
+
+/**
+ * Stock of this food that is turning (aging or worse but still cookable), soonest first: buying more now
+ * would only add to what goes off. Spoiled stock isn't offered as an alternative to buying.
+ */
+export function turningStock(name: string, items: Item[], now: IsoDate): Item[] {
+  return inStock(name, items)
+    .filter((i) => i.fraction > 0 && isCookable(i, now) && stageOf(i, now) !== 'fresh')
+    .sort((a, b) => a.expires.localeCompare(b.expires));
+}
+
+/** Plain heads-up for a shopping line, or null. Never says the food is safe, only how long is left. */
+export function turningNote(name: string, items: Item[], now: IsoDate): string | null {
+  const t = turningStock(name, items, now)[0];
+  return t ? `Use yours first: ${t.name}, ${remainingText(daysLeft(t, now)).toLowerCase()}.` : null;
 }

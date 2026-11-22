@@ -1,3 +1,4 @@
+import { Bob } from '@/components/common/pixel-motion';
 import { Art, type ArtName } from '@/components/halloween/art';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
@@ -15,11 +16,11 @@ export function EmptyState({
   icon, art, title, description, action, inCard,
 }: { icon: LucideIcon; art?: ArtName; title: string; description?: string; action?: React.ReactNode; inCard?: boolean }) {
   return (
-    <View role="status" className={cn('items-center gap-2', inCard ? 'px-2 py-6' : 'border-border rounded-lg border border-dashed px-6 py-10')}>
+    <View role="status" className={cn('items-center gap-2', inCard ? 'px-2 py-6' : 'border-border border-2 border-dashed px-6 py-10')}>
       {art ? (
-        <Art name={art} size={64} className="mb-1" />
+        <Bob><Art name={art} size={64} className="mb-1" /></Bob>
       ) : (
-        <View className="bg-muted mb-1 h-12 w-12 items-center justify-center rounded-full">
+        <View className="bg-muted mb-1 h-12 w-12 items-center justify-center rounded-sm">
           <Icon as={icon} size={22} className="text-muted-foreground" />
         </View>
       )}

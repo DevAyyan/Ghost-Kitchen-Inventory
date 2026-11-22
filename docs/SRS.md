@@ -82,7 +82,7 @@ Priority: M = Must (MVP), S = Should, C = Could.
 ### 4.1 Receipt Upload and OCR
 | ID | Requirement | Pri |
 |---|---|---|
-| FR-RCP-1 | The user shall upload a receipt image (JPG, PNG, HEIC) up to 10 MB via file picker or camera. | M |
+| FR-RCP-1 | The user shall upload a receipt image (JPG, PNG, HEIC) up to 10 MB via file picker or camera. The client re-encodes every photo to JPEG before upload, so HEIC works wherever the device can open it (Android, Safari); other browsers show a message asking for JPG or PNG. | M |
 | FR-RCP-2 | The system shall extract line items with name, quantity, and price. | M |
 | FR-RCP-3 | The system shall extract store name, date, currency, subtotal, tax, and total when present. | S |
 | FR-RCP-4 | The system shall display processing status (uploading, reading, parsing, done, failed). | M |
@@ -161,7 +161,7 @@ Priority: M = Must (MVP), S = Should, C = Could.
 | FR-CUR-2 | The system shall show the detected currency and a confidence indicator on the confirmation screen. | M |
 | FR-CUR-3 | The user shall change the currency of a receipt before or after confirming it. This relabels the amounts and does not convert them, since it corrects a detection error. | M |
 | FR-CUR-4 | When the currency is ambiguous (e.g. "$" without other clues, "kr"), the system shall preselect the user's default currency, mark it low confidence, and ask the user to check it. | M |
-| FR-CUR-5 | On first launch, the system shall set the user's default currency from the device/browser locale, and the user shall change it in Settings. | M |
+| FR-CUR-5 | On first launch, the default and display currencies shall be US dollars, and the user shall change them in Settings. (Earlier versions took them from the device locale.) | M |
 | FR-CUR-6 | The user shall choose a display currency for the ledger and dashboard (defaults to the default currency). | M |
 | FR-CUR-7 | Amounts shall always be stored in their original receipt currency. Totals that mix currencies shall be converted to the display currency using daily exchange rates, with the rate date shown. | S |
 | FR-CUR-8 | If exchange rates are unavailable, the ledger shall show per-currency subtotals instead of a converted total. | M |
@@ -204,7 +204,7 @@ Priority: M = Must (MVP), S = Should, C = Could.
 | NFR-RES-6 | Resources | The system shall stay within configured Gemini free-tier limits (requests per minute and per day) and cap per-user daily AI usage. |
 | NFR-RES-5 | Resources | The Android client shall use under 200 MB RAM while showing the fridge. |
 | NFR-ACC-1 | Accuracy | Line-item extraction accuracy of at least 85% on a test set of clean receipts (post-confirmation correction is expected). |
-| NFR-SEC-1 | Security | All traffic over TLS; passwords hashed with a modern algorithm (argon2/bcrypt). |
+| NFR-SEC-1 | Security | All traffic over TLS. Passwords are handled by Clerk, so the server never sees or stores one. |
 | NFR-SEC-2 | Security | Receipt images stored privately, accessible only to the owner, and deleted after confirmation or 24 h. |
 | NFR-SEC-3 | Security | Gemini inputs shall exclude personal data other than the receipt image (EXIF stripped), ingredient names, and preferences. The API key shall exist only on the server, never in web or Android clients. |
 | NFR-USA-1 | Usability | Core flow (upload to recipes) completable in under 3 minutes by a first-time user. |

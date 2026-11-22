@@ -27,7 +27,7 @@ export function StageKeyToggle({ open, onToggle }: { open: boolean; onToggle: ()
       accessibilityState={{ expanded: open }}
       accessibilityLabel="What do these filters mean?"
       className={cn(
-        'border-border h-11 w-11 items-center justify-center rounded-full border web:hover:bg-accent active:bg-accent web:outline-none web:focus-visible:ring-2 web:focus-visible:ring-ring',
+        'border-border h-11 w-11 items-center justify-center rounded-sm border web:hover:bg-accent active:bg-accent web:outline-none web:focus-visible:ring-2 web:focus-visible:ring-ring',
         open && 'bg-accent'
       )}>
       <Icon as={Info} size={16} className={open ? 'text-foreground' : 'text-muted-foreground'} />

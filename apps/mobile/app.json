@@ -8,7 +8,9 @@
     "scheme": "ghostkitchen",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#120e15",
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true
     },
@@ -18,9 +20,10 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#120e15"
       },
-      "permissions": ["android.permission.CAMERA"],
+      "permissions": [
+        "android.permission.CAMERA"
+      ],
       "blockedPermissions": [
-        "android.permission.RECORD_AUDIO",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE"
       ]
@@ -40,12 +43,28 @@
           "backgroundColor": "#120e15"
         }
       ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": false
+          }
+        }
+      ],
       "expo-status-bar",
       "expo-localization",
       [
         "expo-notifications",
         {
-          "color": "#34d399"
+          "color": "#3bf1a6",
+          "icon": "./assets/images/notification-icon.png"
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Ghost Kitchen uses the camera to read grocery barcodes.",
+          "recordAudioAndroid": false
         }
       ],
       [
@@ -54,6 +73,15 @@
           "photosPermission": "Ghost Kitchen uses your photos to read grocery receipts.",
           "cameraPermission": "Ghost Kitchen uses the camera to photograph grocery receipts.",
           "microphonePermission": false
+        }
+      ],
+      "expo-sharing",
+      "expo-asset",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Ghost Kitchen listens only while you hold the microphone button, to log food you used or threw out.",
+          "speechRecognitionPermission": "Ghost Kitchen turns what you say into food you used or threw out."
         }
       ]
     ],

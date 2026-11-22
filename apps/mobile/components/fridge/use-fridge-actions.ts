@@ -9,6 +9,7 @@ import type { Item } from '@/lib/domain/types';
 import { useSummarize } from '@/lib/rates';
 import { useApp } from '@/lib/store/app-store';
 import { toast } from '@/lib/store/toast';
+import { sfx } from '@/lib/feedback';
 
 /**
  * What the fridge screen needs to decide on, and the one-tap actions behind it. Shared by the drawn
@@ -19,6 +20,15 @@ export function useFridgeActions(items: Item[]) {
   const consumeItem = useApp((s) => s.consumeItem);
   const discardItem = useApp((s) => s.discardItem);
   const moveItem = useApp((s) => s.moveItem);
+  const addShopping = useApp((s) => s.addShopping);
+  /** The toast button after binning or burying: put it (or them) back on the shopping list. */
+  const restock = (names: string[]) => ({
+    label: 'Add to list',
+    onPress: () => {
+      const added = [...new Set(names)].filter((n) => addShopping(n, { source: 'used-up' })).length;
+      toast(added ? `Added to the shopping list` : `Already on the shopping list`);
+    },
+  });
 
   const spoiled = items.filter((i) => stageOf(i) === 'spoiled');
   // Dates only need checking once food starts to turn: that's when an estimate drives the warning.
@@ -47,13 +57,14 @@ export function useFridgeActions(items: Item[]) {
   };
   const binned = (item: Item) => {
     const res = discardItem(item.id);
-    if (res) toast(`${item.name} buried · ${formatMoney(res.value, res.currency)} lost`);
+    if (res) { sfx('bury'); toast(`${item.name} buried · ${formatMoney(res.value, res.currency)} lost`, restock([item.name])); }
     return !!res;
   };
   const buryAll = () => {
     const lost = spoiled.map((i) => discardItem(i.id)).filter((x) => x !== null);
     const text = lost.length === 1 ? formatMoney(lost[0]!.value, lost[0]!.currency) : summarize(lost.map((l) => ({ minor: l!.value, currency: l!.currency }))).text;
-    toast(`${lost.length} buried · ${text} lost`);
+    if (lost.length) sfx('bury');
+    toast(`${lost.length} buried · ${text} lost`, lost.length ? restock(spoiled.map((i) => i.name)) : undefined);
   };
 
   return { spoiled, estimated, moves, forgotten, turning, atRisk, moveNow, usedAll, binned, buryAll };

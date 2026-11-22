@@ -1,0 +1,16 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Demo data: cross-check on save",
+      "trigger": "PostFileSave",
+      "description": "Demo mode answers from recorded data on the device. When that data or its matcher changes, reruns the tests that keep it in step with the server's matching and safety floor.",
+      "matcher": "apps/mobile/lib/demo/.*\\.(ts|json)$",
+      "action": {
+        "type": "command",
+        "command": "cd apps/api && npx vitest run test/demo.test.ts && cd ../mobile && npx vitest run test/demo.test.ts",
+        "timeout": 120
+      }
+    }
+  ]
+}

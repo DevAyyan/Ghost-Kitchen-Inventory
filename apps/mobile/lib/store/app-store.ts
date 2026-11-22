@@ -10,9 +10,13 @@ import { deleteFoodPhoto } from '@/lib/photos';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { APP_STORE_VERSION, migrateAppData, pruneFinished } from './migrations';
-import { sampleData } from './seed';
+import { SAMPLE_CURRENCY, sampleData } from './seed';
 import { useSettings } from './settings-store';
 import { safeStorage } from './storage';
+import { useAuthStore } from './auth-store';
+
+/** History says who did it, when someone is signed in (see ItemEvent.by). */
+const byMe = (): { by?: string } => { const id = useAuthStore.getState().me?.id; return id ? { by: id } : {}; };
 
 /** A fridge item a recipe uses, as returned by the recipe API. `uses`: amounts the recipe calls for. */
 export interface CookPlan { title: string; itemIds: string[]; uses?: Record<string, { amount: number; unit: Unit }> }
@@ -57,6 +61,11 @@ interface AppState {
   removePlan: (id: string) => void;
   /** Cooks a planned meal: uses its fridge items like a recipe and marks it cooked. */
   cookPlan: (id: string) => { count: number; saved: { minor: number; currency: string }[] } | null;
+  /**
+   * Puts a cooked meal's leftovers in the fridge. Always high risk with the short leftovers estimate, and
+   * the date stays an estimate until the user confirms it. Returns the new item's id.
+   */
+  addLeftovers: (title: string) => string;
   /** Opt-in demo content for trying the app. Adds to whatever is already there. */
   loadSampleData: () => void;
   /** Deletes items, receipts, history and photos. Settings (a separate store) stay. */
@@ -91,7 +100,7 @@ export const useApp = create<AppState>()(
         const event: ItemEvent = {
           id: newId('e'), type: 'used', name: it.name, category: it.category, itemId: it.id,
           minor: value, currency: it.currency, stage, date: today(), amount: finished ? left : used, unit: it.unit,
-          ...(finished ? { finished: true } : {}),
+          ...(finished ? { finished: true } : {}), ...byMe(),
         };
         set((s) => ({
           items: s.items.map((i) => (i.id === id ? { ...i, fraction: finished ? 0 : fraction, status: finished ? 'used' : 'active' } : i)),
@@ -110,7 +119,7 @@ export const useApp = create<AppState>()(
           id: newId('e'), type: 'discarded', name: it.name, category: it.category, itemId: it.id, minor: value,
           amount: it.qty * it.fraction, unit: it.unit,
           currency: it.currency, stage: stageOf(it), date: today(), purchased: it.purchased,
-          shelfDays: it.shelfDays, ...(teaches ? { wentOff: true } : {}),
+          shelfDays: it.shelfDays, ...(teaches ? { wentOff: true } : {}), ...byMe(),
         };
         set((s) => ({
           items: s.items.map((i) => (i.id === id ? { ...i, status: 'discarded', fraction: 0 } : i)),
@@ -236,9 +245,20 @@ export const useApp = create<AppState>()(
         set((s) => ({ plan: s.plan.map((p) => (p.id === id ? { ...p, cooked: true } : p)) }));
         return res;
       },
+      addLeftovers: (title) => {
+        // No price: what it cost is already counted in the ingredients it used.
+        const item = makeItem({
+          name: `${title.trim().slice(0, 68)} leftovers`, category: 'leftovers', zone: 'fridge',
+          priceMinor: 0, currency: useSettings.getState().settings.defaultCurrency, purchased: today(),
+        });
+        set((s) => ({ items: [...s.items, item] }));
+        return item.id;
+      },
 
       loadSampleData: () => {
-        const sample = sampleData(useSettings.getState().settings.defaultCurrency);
+        // The sample's prices are written in dollars, so they're labelled USD whatever the default is:
+        // "3.89" milk in rupees would be nonsense. The ledger converts them to the display currency.
+        const sample = sampleData(SAMPLE_CURRENCY);
         set((s) => ({ items: [...s.items, ...sample.items], receipts: [...sample.receipts, ...s.receipts], events: [...sample.events, ...s.events] }));
       },
       clearAllData: () => {

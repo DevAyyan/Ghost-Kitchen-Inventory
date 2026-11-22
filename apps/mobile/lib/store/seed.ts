@@ -43,6 +43,9 @@ const AMOUNTS: Record<string, [number, Unit]> = {
   Rice: [1, 'kg'], 'Frozen peas': [500, 'g'], 'Ice cream': [1, 'l'],
 };
 
+/** The currency the sample's prices are written in. */
+export const SAMPLE_CURRENCY = 'USD';
+
 export function sampleData(currency: string): { items: Item[]; receipts: Receipt[]; events: ItemEvent[] } {
   const now = today();
   const items = ROWS.map(([name, category, zone, ago, left, price, multiUse = false, confirmed = true]) => {
@@ -57,10 +60,11 @@ export function sampleData(currency: string): { items: Item[]; receipts: Receipt
     { id: newId('r'), store: 'Sample receipt', date: addDays(now, -4), currency, totalMinor: toMinor(38.7, currency) },
   ];
   const events: ItemEvent[] = [
-    { id: newId('e'), type: 'used', name: 'Broccoli', category: 'vegetable', minor: toMinor(2.79, currency), currency, stage: 'expiring', date: addDays(now, -3) },
-    { id: newId('e'), type: 'discarded', name: 'Salmon fillet', category: 'fish', minor: toMinor(8.99, currency), currency, stage: 'spoiled', date: addDays(now, -2), purchased: addDays(now, -6) },
-    { id: newId('e'), type: 'discarded', name: 'Lettuce', category: 'vegetable', minor: toMinor(2.49, currency), currency, stage: 'spoiled', date: addDays(now, -5), purchased: addDays(now, -14) },
-    { id: newId('e'), type: 'discarded', name: 'Sourdough', category: 'bakery', minor: toMinor(4.5, currency), currency, stage: 'spoiled', date: addDays(now, -9), purchased: addDays(now, -16) },
+    { id: newId('e'), type: 'used', name: 'Chicken thighs', category: 'meat', minor: toMinor(5.49, currency), currency, amount: 0.6, unit: 'kg', stage: 'expiring', date: addDays(now, -1) },
+    { id: newId('e'), type: 'used', name: 'Broccoli', category: 'vegetable', minor: toMinor(2.79, currency), currency, amount: 500, unit: 'g', stage: 'expiring', date: addDays(now, -3) },
+    { id: newId('e'), type: 'discarded', name: 'Salmon fillet', category: 'fish', minor: toMinor(8.99, currency), currency, amount: 250, unit: 'g', stage: 'spoiled', date: addDays(now, -2), purchased: addDays(now, -6) },
+    { id: newId('e'), type: 'discarded', name: 'Lettuce', category: 'vegetable', minor: toMinor(2.49, currency), currency, amount: 400, unit: 'g', stage: 'spoiled', date: addDays(now, -5), purchased: addDays(now, -14) },
+    { id: newId('e'), type: 'discarded', name: 'Sourdough', category: 'bakery', minor: toMinor(4.5, currency), currency, amount: 1, unit: 'pcs', stage: 'spoiled', date: addDays(now, -9), purchased: addDays(now, -16) },
   ];
   return { items, receipts, events };
 }

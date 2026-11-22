@@ -52,7 +52,8 @@ export async function lookupProducts(names: string[]): Promise<{ info: Map<strin
 }
 
 function save(fresh: Record<string, ProductInfo>, info: Map<string, ProductInfo | null>, status: LookupStatus) {
-  if (Object.keys(fresh).length) useProductCache.setState((s) => ({ byKey: { ...s.byKey, ...fresh } }));
+  // Demo answers stay out of the cache, so they never stand in for real lookups later.
+  if (Object.keys(fresh).length && !useSettings.getState().settings.demoMode) useProductCache.setState((s) => ({ byKey: { ...s.byKey, ...fresh } }));
   return { info, status };
 }
 

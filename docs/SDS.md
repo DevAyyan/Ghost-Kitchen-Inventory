@@ -2,6 +2,8 @@
 
 Version 0.1 (MVP) | Date: 2026-11-10 | Companion to `SRS.md`
 
+> Status note: this is the original design. The code differs in places. The `rules/*.json` files named below (other than `apps/mobile/lib/domain/rules/food-safety.json`) were not built as files: currency, abbreviation and recipe-template logic lives in code (`apps/mobile/lib/currency`, `apps/api/src/match.ts`, `apps/api/src/tonight.ts`). Where this document and the code disagree, the code is right.
+
 ## 1. Architecture Overview
 
 One React Native codebase (Expo) ships as a native Android app and as a web app (react-native-web, static export). Both talk to the same REST API. The API orchestrates an OCR/extraction pipeline, an expiry engine, and a recipe generator. Data is persisted in PostgreSQL; images in object storage.
@@ -30,10 +32,10 @@ flowchart LR
 | Client (Android + web) | Expo SDK 57, React Native 0.86, Expo Router (file-based routes, typed), TypeScript | Truly native Android app and a web build from one codebase (NFR-COMP-2) |
 | UI components | React Native Reusables (shadcn/ui port) on `@rn-primitives`, styled with NativeWind 4 (Tailwind 3 classes) | shadcn's copy-in, composable model and design tokens, working on native and web |
 | Client state | Zustand, persisted to AsyncStorage; URL params for fridge filter/search/open item | Simple store; URL state makes Android back close the item sheet |
-| Native features | `expo-image-picker` (camera + photo picker), `expo-localization` (default currency), `expo-notifications` and `expo-secure-store` (planned) | Maintained Expo modules, no custom native code |
+| Native features | `expo-image-picker` (camera + photo picker), `expo-localization` (default currency), `expo-notifications`, `expo-secure-store` (Clerk session tokens), `expo-sharing` (data export) and `expo-build-properties` (cleartext traffic off) | Maintained Expo modules, no custom native code |
 | Animation | `react-native-reanimated` (stage glow, flies, ghost float), respects OS reduce-motion | Runs on the UI thread on Android |
 | Backend | Node.js + Fastify + TypeScript | Shared types with frontend |
-| DB | PostgreSQL + Prisma | Relational data, migrations |
+| DB | PostgreSQL through `pg`, tables created by `apps/api/src/store.ts` | Small schema, no ORM to keep in memory |
 | AI (receipts + recipes) | Google Gemini API, model `gemini-3.5-flash`, free tier, via the official `@google/genai` SDK | Multimodal: reads the receipt image directly and returns structured JSON (`responseMimeType: application/json` + `responseSchema`); no local model, so near-zero host RAM |
 | OCR fallback | Tesseract (open source) in a small `ocr` container + dictionary/regex parser | Keeps scanning working when the Gemini quota is exhausted or the API is unreachable |
 | Recipe fallback | Bundled template set (`rules/recipe_templates.json`) ranked by at-risk items used | Recipes still work without Gemini |
@@ -189,10 +191,10 @@ stage(item, today):
   return FRESH
 ```
 
-Safety overrides (from `rules/safety.json`):
+Safety overrides (high-risk categories and the offline fallback table live in `apps/mobile/lib/domain/rules/food-safety.json`; the server keeps its own floor in `ALWAYS_HIGH_RISK`, and a test in `apps/api/test` fails if the two differ):
 - `high_risk` ingredients (raw meat, fish, dairy, cooked leftovers) skip ROTTING: past expiry they go directly to SPOILED.
 - SPOILED and high-risk ROTTING items are excluded from recipes and flagged "discard".
-- Unknown ingredients: Gemini estimates days (returned with the extraction call, no extra request), capped by the category maximum in `rules/shelf_life.json`, flagged `expiry_source = model`.
+- Unknown ingredients: Gemini estimates days (returned with the extraction call, no extra request), a conservative per-category fallback from `food-safety.json` is used when Gemini can't be reached, flagged `expiry_source = model`.
 
 Shelf-life lookup order: user override, ingredient + location rule, category default, model estimate.
 
@@ -393,7 +395,7 @@ Files: `docker-compose.yml` and `.env.example` at the repo root. Put your key in
 Moving AI to Gemini removed the local LLM, which was the largest consumer (~1.5 GB). The remaining ~2.9 GB of headroom covers a browser for testing. The Android emulator is not included; if RAM is tight, test on a real phone. The Android app runs on the phone and uses no host memory.
 
 **Decisions taken to fit 4 GB**
-- **No separate object store.** MinIO was removed. Receipt images are written to a Docker volume (`uploads`), downscaled to max 1600 px long edge and JPEG q80 on the client before upload, and deleted once the receipt is confirmed or after 24 h. An `ObjectStore` interface keeps the option to swap in S3-compatible storage later.
+- **No separate object store.** MinIO was removed. Receipt and item images are downscaled on the client (1600 px, JPEG q85, EXIF removed) and sent once. The server holds them in memory only while OCR and Gemini read them, and never writes them to disk or the database, so there is nothing to delete afterwards.
 - **No separate web server.** The API serves the built static web bundle (`SERVE_WEB=true`), removing an nginx container.
 - **No separate worker or queue.** The daily stage recalculation is a `node-cron` job inside the API. Stage is also computed on read, so the job only schedules notifications and purges old uploads.
 - **No local LLM.** AI runs on the Gemini API, so no model weights are loaded on the host.

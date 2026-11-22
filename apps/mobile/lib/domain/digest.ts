@@ -36,8 +36,11 @@ export function buildDigests(items: Item[], opts: { from?: IsoDate; days?: numbe
     out.push({
       date,
       names,
-      title: names.length === 1 ? `${names[0]} needs cooking` : `${names.length} things need cooking`,
-      body: names.length === 1 ? 'Use it up before it goes. Tap for tonight\'s idea.' : `${join(shown)}${more > 0 ? ` and ${more} more` : ''}. Tap for tonight's idea.`,
+      // Spooky, to match the app, but the facts come first: what, and that it needs cooking soon.
+      title: names.length === 1 ? `${names[0]} is starting to turn` : `${names.length} things are stirring in your kitchen`,
+      body: names.length === 1
+        ? 'Cook it before it haunts the fridge. Tap for tonight\'s idea.'
+        : `${join(shown)}${more > 0 ? ` and ${more} more` : ''} need cooking soon. Tap for tonight's idea.`,
     });
   }
   return out;

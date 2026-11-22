@@ -18,6 +18,7 @@ export function ServerSection() {
   const { status, reachable, lastError, check } = useServer();
   const [url, setUrl] = React.useState(s.apiUrl);
   const [token, setToken] = React.useState(s.apiToken);
+  const accounts = useServer((st) => st.auth?.provider === 'clerk');
   const [testing, setTesting] = React.useState(false);
   // Typed but not saved: shown so an edit isn't silently lost when leaving the screen.
   const dirty = url.trim().replace(/\/+$/, '') !== s.apiUrl || token.trim() !== s.apiToken;
@@ -34,6 +35,7 @@ export function ServerSection() {
 
   return (
     <Section title="Server">
+      {s.demoMode && <View className="mb-3"><StatusLine state="warn" text="Demo mode is on, so this server isn't used until you turn it off." /></View>}
       <Text className="text-muted-foreground mb-3 text-sm">
         Receipt reading, shelf-life lookups, recipes and exchange rates run on your Ghost Kitchen server. Your fridge itself works offline.
       </Text>
@@ -50,10 +52,13 @@ export function ServerSection() {
           className="h-11"
         />
       </View>
-      <View className="mt-3 gap-1.5">
-        <Label nativeID="api-token">Access token (if your server has one)</Label>
-        <Input aria-labelledby="api-token" value={token} onChangeText={setToken} secureTextEntry autoCapitalize="none" autoCorrect={false} className="h-11" />
-      </View>
+      {/* With accounts on, your sign-in protects the server and the shared token isn't used. */}
+      {!accounts && (
+        <View className="mt-3 gap-1.5">
+          <Label nativeID="api-token">Access token (if your server has one)</Label>
+          <Input aria-labelledby="api-token" value={token} onChangeText={setToken} secureTextEntry autoCapitalize="none" autoCorrect={false} className="h-11" />
+        </View>
+      )}
       <View className="mt-3 flex-row flex-wrap items-center gap-3">
         <Button className="h-11" onPress={() => void save()} disabled={testing}>
           <Text>{testing ? 'Checking…' : 'Save and test connection'}</Text>

@@ -71,3 +71,26 @@ describe('pruning finished items', () => {
     expect(eventPhoto(ev('gone', now), byId)).toBeUndefined();
   });
 });
+
+describe('settings migrations', () => {
+  it('v10 → v11: drops the old shut-doors list, keeps everything else, and starts larger text off', async () => {
+    const { migrateSettings } = await import('@/lib/store/settings-migrations');
+    const v10 = { settings: { defaultCurrency: 'EUR', doorsClosed: ['fridge', 'pantry'], soundEffects: false, doorOpens: 2, introSeen: true } };
+    const out = migrateSettings(structuredClone(v10), 10).settings!;
+    expect(out).not.toHaveProperty('doorsClosed');
+    expect(out).toMatchObject({ defaultCurrency: 'EUR', soundEffects: false, doorOpens: 2, introSeen: true, largeText: false });
+  });
+
+  it('v11 → v12: adds the monthly budget, off, and keeps everything else', async () => {
+    const { migrateSettings } = await import('@/lib/store/settings-migrations');
+    const out = migrateSettings({ settings: { defaultCurrency: 'GBP', largeText: true } }, 11).settings!;
+    expect(out).toMatchObject({ defaultCurrency: 'GBP', largeText: true, monthlyBudgetMinor: 0 });
+  });
+
+  it('a v1 install still comes through every step', async () => {
+    const { migrateSettings } = await import('@/lib/store/settings-migrations');
+    const out = migrateSettings({ settings: { vegetarian: true } }, 1).settings!;
+    expect(out).toMatchObject({ diets: ['vegetarian'], soundEffects: true, fridgeView: 'kitchen', introSeen: true, largeText: false, monthlyBudgetMinor: 0 });
+    expect(out).not.toHaveProperty('doorsClosed');
+  });
+});

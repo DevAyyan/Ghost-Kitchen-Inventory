@@ -188,6 +188,26 @@ export function manualDraft(currency: string, date: IsoDate): Draft {
 }
 
 /**
+ * A scanned barcode as a one-line hand-entry draft: the product's name, type and pack size filled in, the
+ * price left for the user. Its date is a category estimate until the shelf-life lookup and the user check it.
+ */
+export function draftFromBarcode(
+  p: { name: string; brand: string | null; category: string; qty: number | null; unit: string | null },
+  opts: { currency: string; date: IsoDate }
+): Draft {
+  const category = asCategory(p.category);
+  const zone = homeZone(category);
+  const est = estimateExpiry(category, opts.date, zone);
+  const line: DraftLine = {
+    ...blankLine(opts.date),
+    name: p.name, raw: p.brand ? `${p.brand} ${p.name}` : p.name, category, zone, manual: false,
+    ...(p.qty !== null && isUnit(p.unit) ? scannedQty(p.qty, p.unit) : {}),
+    expires: est.expires, expirySource: est.source,
+  };
+  return { ...manualDraft(opts.currency, opts.date), store: 'Barcode scan', lines: [line] };
+}
+
+/**
  * Price typed on a line. Empty means free (0): gifts, garden produce, leftovers. Anything that isn't a
  * plain number ("1.2.3") is NaN, so validateDraft can point it out instead of guessing.
  */
@@ -240,4 +260,22 @@ export function validateDraft(d: Draft): string | null {
   if (lines.some((l) => !l.nonFood && !Number.isFinite(parseQty(l.qty)))) return 'One amount is empty or zero. Enter how much you bought.';
   // Expiry dates are not required: unconfirmed ones stay marked "est." in the fridge until checked.
   return null;
+}
+
+/**
+ * Rows worth a second look on review: a low-confidence reading, a date already past, or food that's
+ * already stocked. Everything else can be confirmed as read.
+ */
+export function rowNeedsCheck(l: DraftLine, opts: { duplicate: boolean; now: IsoDate }): boolean {
+  if (!l.include || l.nonFood) return false;
+  if (!l.manual && l.confidence < LOW_CONFIDENCE) return true;
+  if (l.name.trim() === '') return true;
+  return opts.duplicate || daysBetween(opts.now, l.expires) < 0;
+}
+
+/** How many stocked rows go to each section, for the summary over the list. */
+export function sectionCounts(lines: DraftLine[]): Record<Zone, number> {
+  const out: Record<Zone, number> = { freezer: 0, fridge: 0, pantry: 0 };
+  for (const l of lines) if (needsExpiry(l)) out[l.zone]++;
+  return out;
 }

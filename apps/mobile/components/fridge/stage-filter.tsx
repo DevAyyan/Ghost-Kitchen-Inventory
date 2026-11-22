@@ -79,8 +79,9 @@ export function StageFilter({
     );
   }
   return (
-    <View className="flex-row flex-wrap items-center gap-2">
-      <View role="group" aria-label="Filter by freshness" className="flex-row flex-wrap gap-2">
+    // The chips wrap inside their own box, so the key button keeps its place at the end of the first line.
+    <View className="flex-row items-start gap-2">
+      <View role="group" aria-label="Filter by freshness" className="min-w-0 flex-1 flex-row flex-wrap gap-2">
         {chip}
       </View>
       {trailing}

@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ghost Kitchen Architecture</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one wide system map, then the receipt pipeline, then a compact fact grid. */
+:root {
+  --bg: #f6f4fa; --surface: #ffffff; --fg: #1d1a26; --muted: #625c74; --line: #c9c3d8;
+  --sync: #d9620f; --ai: #7a3fd1; --box: #efeaf8;
+  --display: "Pixelify Sans", "Space Grotesk", system-ui, sans-serif;
+  --body: "Inter", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #15121d; --surface: #1d1928; --fg: #ece8f5; --muted: #a59fb8; --line: #433c56;
+  --sync: #ff8a3d; --ai: #b48cff; --box: #262035; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #15121d; --surface: #1d1928; --fg: #ece8f5; --muted: #a59fb8; --line: #433c56;
+  --sync: #ff8a3d; --ai: #b48cff; --box: #262035; color-scheme: dark }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--body); line-height: 1.55; }
+main { max-width: 1120px; margin: 0 auto; padding-block: 40px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 40px; }
+h1, h2 { font-family: var(--display); font-weight: 700; text-wrap: balance; margin: 0; }
+h1 { font-size: 2.2rem; letter-spacing: .01em; }
+h2 { font-size: 1.35rem; }
+.lede { color: var(--muted); max-width: 68ch; margin: 8px 0 0; }
+section { display: flex; flex-direction: column; gap: 14px; }
+figure { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.scroll { overflow-x: auto; }
+svg { display: block; width: 100%; height: auto; min-width: 760px; color: var(--fg); }
+figcaption { color: var(--muted); font-size: .9rem; max-width: 80ch; }
+.key { display: flex; flex-wrap: wrap; gap: 18px; font-size: .85rem; color: var(--muted); }
+.key span::before { content: ""; display: inline-block; width: 22px; height: 3px; vertical-align: middle; margin-right: 6px; background: currentColor; }
+.key .s { color: var(--sync); } .key .a { color: var(--ai); } .key .p { color: var(--fg); }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.fact { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; min-width: 0; }
+.fact h3 { margin: 0 0 4px; font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; }
+.fact p { margin: 0; font-size: .92rem; }
+code { font-family: var(--mono); font-size: .85em; }
+/* SVG classes */
+.bx { fill: var(--surface); stroke: var(--line); stroke-width: 1.2; }
+.in { fill: var(--box); stroke: none; }
+.zone { fill: none; stroke: var(--muted); stroke-dasharray: 6 5; stroke-width: 1.2; }
+.t { fill: var(--fg); font: 600 14px var(--body); }
+.st { fill: var(--muted); font: 400 11.5px var(--body); }
+.r { fill: var(--fg); font: 500 11.5px var(--body); }
+.m { fill: var(--fg); font: 500 11px var(--mono); }
+.lb { fill: var(--muted); font: 500 10.5px var(--body); }
+.hd { fill: var(--muted); font: 600 11px var(--body); letter-spacing: .08em; text-transform: uppercase; }
+.ed { stroke: var(--fg); stroke-width: 1.4; fill: none; }
+.ed-s { stroke: var(--sync); stroke-width: 2.2; fill: none; }
+.ed-a { stroke: var(--ai); stroke-width: 2; fill: none; }
+.lb-s { fill: var(--sync); font: 600 10.5px var(--body); }
+.lb-a { fill: var(--ai); font: 600 10.5px var(--body); }
+.hi-s { fill: none; stroke: var(--sync); stroke-width: 1.6; }
+.hi-a { fill: none; stroke: var(--ai); stroke-width: 1.6; }
+.ah { fill: var(--fg); } .ah-s { fill: var(--sync); } .ah-a { fill: var(--ai); }
+</style>
+
+<main>
+  <header>
+    <h1>Ghost Kitchen Architecture</h1>
+    <p class="lede">One Expo codebase ships as an Android app and a website. Each device keeps a full offline copy of the household's food. A small self-hosted Docker stack reads receipts, asks Gemini for item names and shelf life, fetches recipes and exchange rates, and relays changes between household devices.</p>
+  </header>
+
+  <section>
+    <h2>System map</h2>
+    <figure>
+      <div class="scroll">
+      <svg viewBox="0 0 1040 660" role="img" aria-label="Expo clients talk over HTTPS to a Fastify API inside a Docker Compose stack with Tesseract OCR and Postgres; the API calls Gemini, TheMealDB, Frankfurter and Open Food Facts; household devices sync through the API.">
+        <defs>
+          <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+          <marker id="as" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-s"/></marker>
+          <marker id="aa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-a"/></marker>
+        </defs>
+
+        <!-- Column headings -->
+        <text x="20" y="48" class="hd">Devices</text>
+        <text x="800" y="48" class="hd">External (free tiers)</text>
+
+        <!-- Device A -->
+        <rect x="20" y="60" width="230" height="330" rx="8" class="bx"/>
+        <text x="36" y="86" class="t">Expo app</text>
+        <text x="36" y="104" class="st">Android APK · web build · RN + NativeWind</text>
+        <rect x="36" y="118" width="198" height="34" rx="5" class="in"/><text x="46" y="139" class="r">Screens · Expo Router (7 tabs)</text>
+        <rect x="36" y="162" width="198" height="34" rx="5" class="in"/><text x="46" y="183" class="r">Zustand stores + domain logic</text>
+        <rect x="36" y="206" width="198" height="34" rx="5" class="in"/><text x="46" y="227" class="r">AsyncStorage · full local copy</text>
+        <rect x="36" y="250" width="198" height="34" rx="5" class="in"/><text x="46" y="271" class="r">Food photos · never uploaded</text>
+        <rect x="36" y="294" width="198" height="34" rx="5" class="in"/><text x="46" y="315" class="r">Local reminders + Monday digest</text>
+        <rect x="36" y="340" width="198" height="34" rx="5" class="in"/><rect x="36" y="340" width="198" height="34" rx="5" class="hi-s"/><text x="46" y="361" class="r">sync.ts · offline-first</text>
+
+        <!-- Device B -->
+        <rect x="20" y="440" width="230" height="90" rx="8" class="bx"/>
+        <text x="36" y="466" class="t">Other household device</text>
+        <text x="36" y="486" class="st">Joined with a 10-min one-time code</text>
+        <text x="36" y="503" class="st">Own secret; server stores only its hash</text>
+
+        <!-- Compose boundary -->
+        <rect x="320" y="30" width="420" height="610" rx="12" class="zone"/>
+        <text x="336" y="54" class="hd">docker compose · self-hosted · 4 GB host</text>
+
+        <!-- API -->
+        <rect x="345" y="70" width="370" height="360" rx="8" class="bx"/>
+        <text x="361" y="96" class="t">api · Fastify (Node, TypeScript)</text>
+        <text x="361" y="114" class="st">:3000 · 256 MB limit</text>
+        <rect x="361" y="126" width="338" height="28" rx="5" class="in"/>
+        <text x="371" y="144" class="r">Gates: API_TOKEN → rate limits → zod schemas</text>
+
+        <text x="371" y="183" class="m">/v1/receipts/scan</text><text x="525" y="183" class="r">OCR → Gemini → rules</text>
+        <text x="371" y="213" class="m">/v1/items/scan</text><text x="525" y="213" class="r">photo → name + date</text>
+        <text x="371" y="243" class="m">/v1/products/info</text><text x="525" y="243" class="r">shelf life, cached</text>
+        <text x="371" y="273" class="m">/v1/recipes/suggest</text><text x="525" y="273" class="r">+ /v1/tonight</text>
+        <text x="371" y="303" class="m">/v1/barcodes/:code</text><text x="525" y="303" class="r">product lookup</text>
+        <text x="371" y="333" class="m">/v1/rates</text><text x="525" y="333" class="r">daily FX, cached</text>
+        <rect x="361" y="344" width="338" height="28" rx="5" class="hi-s"/>
+        <text x="371" y="363" class="m">/v1/households/*</text><text x="525" y="363" class="r">create, invite, join, sync</text>
+        <text x="371" y="393" class="m">/ (static)</text><text x="525" y="393" class="r">serves the web build</text>
+        <text x="371" y="416" class="st">AI budget: RPM + daily cap, model fallback</text>
+
+        <!-- OCR -->
+        <rect x="345" y="470" width="170" height="130" rx="8" class="bx"/>
+        <text x="361" y="496" class="t">ocr · Tesseract</text>
+        <text x="361" y="514" class="st">FastAPI (Python) :8080</text>
+        <text x="361" y="531" class="st">384 MB limit</text>
+        <text x="361" y="560" class="m">POST /ocr</text>
+        <text x="361" y="578" class="st">→ lines + confidence</text>
+
+        <!-- Postgres -->
+        <rect x="535" y="470" width="180" height="155" rx="8" class="bx"/>
+        <text x="551" y="496" class="t">db · Postgres 16</text>
+        <text x="551" y="514" class="st">256 MB · volume pgdata</text>
+        <text x="551" y="536" class="m">product_info</text>
+        <text x="551" y="551" class="m">ai_usage</text>
+        <text x="551" y="566" class="m">fx_rates</text>
+        <text x="551" y="581" class="m">households, _members</text>
+        <text x="551" y="596" class="m">household_invites</text>
+        <text x="551" y="611" class="m" style="fill:var(--sync)">sync_records (seq)</text>
+
+        <!-- Externals -->
+        <rect x="800" y="70" width="220" height="80" rx="8" class="bx"/><rect x="800" y="70" width="220" height="80" rx="8" class="hi-a"/>
+        <text x="816" y="96" class="t">Google Gemini API</text>
+        <text x="816" y="114" class="st">flash, flash-lite fallback</text>
+        <text x="816" y="131" class="st">receipt text, item photos</text>
+        <rect x="800" y="180" width="220" height="70" rx="8" class="bx"/>
+        <text x="816" y="206" class="t">TheMealDB</text><text x="816" y="224" class="st">recipes by ingredient</text>
+        <rect x="800" y="280" width="220" height="70" rx="8" class="bx"/>
+        <text x="816" y="306" class="t">Frankfurter</text><text x="816" y="324" class="st">daily reference FX rates</text>
+        <rect x="800" y="380" width="220" height="70" rx="8" class="bx"/>
+        <text x="816" y="406" class="t">Open Food Facts</text><text x="816" y="424" class="st">barcode → product</text>
+
+        <!-- Client → API -->
+        <line x1="250" y1="183" x2="343" y2="183" class="ed" marker-end="url(#a)"/>
+        <text x="258" y="166" class="lb">HTTPS · JSON,</text>
+        <text x="258" y="177" class="lb">receipt/item images</text>
+        <line x1="252" y1="358" x2="359" y2="358" class="ed-s" marker-start="url(#as)" marker-end="url(#as)"/>
+        <text x="258" y="342" class="lb-s">push 1.5 s · poll 30 s</text>
+        <polyline points="250,485 290,485 290,366 359,366" class="ed-s" marker-start="url(#as)" marker-end="url(#as)"/>
+        <text x="296" y="460" class="lb-s">same sync</text>
+
+        <!-- API → internal services -->
+        <line x1="430" y1="430" x2="430" y2="468" class="ed" marker-end="url(#a)"/>
+        <text x="438" y="453" class="lb">receipt image</text>
+        <line x1="625" y1="430" x2="625" y2="468" class="ed" marker-end="url(#a)"/>
+        <text x="633" y="453" class="lb">cache · quota · sync</text>
+
+        <!-- API → externals -->
+        <line x1="715" y1="110" x2="798" y2="110" class="ed-a" marker-end="url(#aa)"/>
+        <text x="721" y="103" class="lb-a">text → JSON</text>
+        <line x1="715" y1="215" x2="798" y2="215" class="ed" marker-end="url(#a)"/>
+        <text x="721" y="208" class="lb">recipes</text>
+        <line x1="715" y1="315" x2="798" y2="315" class="ed" marker-end="url(#a)"/>
+        <text x="721" y="308" class="lb">rates</text>
+        <line x1="715" y1="415" x2="798" y2="415" class="ed" marker-end="url(#a)"/>
+        <text x="721" y="408" class="lb">barcodes</text>
+      </svg>
+      </div>
+      <div class="key"><span class="s">household sync (last write wins)</span><span class="a">AI calls (budgeted)</span><span class="p">plain request</span></div>
+      <figcaption>The server holds no food data of its own: households sync opaque JSON records through <code>sync_records</code>, ordered by a sequence number. Photos stay on the phone that took them. Every external call goes out from the API, so the app never holds a Gemini key.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>Receipt scan pipeline</h2>
+    <figure>
+      <div class="scroll">
+      <svg viewBox="0 0 1010 200" role="img" aria-label="A receipt photo goes to Tesseract OCR, then through the AI budget check to Gemini, then shelf-life lookup, then the review screen; when AI is off or the budget is spent, a rules parser takes over.">
+        <defs>
+          <marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+          <marker id="ba" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ah-a"/></marker>
+        </defs>
+        <rect x="10" y="30" width="140" height="58" rx="7" class="bx"/><text x="22" y="54" class="t">Receipt photo</text><text x="22" y="72" class="st">phone camera</text>
+        <rect x="180" y="30" width="140" height="58" rx="7" class="bx"/><text x="192" y="54" class="t">Tesseract</text><text x="192" y="72" class="st">text lines + confidence</text>
+        <rect x="350" y="30" width="140" height="58" rx="7" class="bx"/><text x="362" y="54" class="t">AI budget</text><text x="362" y="72" class="st">reserve 1 from ai_usage</text>
+        <rect x="520" y="30" width="140" height="58" rx="7" class="bx"/><rect x="520" y="30" width="140" height="58" rx="7" class="hi-a"/><text x="532" y="54" class="t">Gemini</text><text x="532" y="72" class="st">items, prices, currency</text>
+        <rect x="690" y="30" width="140" height="58" rx="7" class="bx"/><text x="702" y="54" class="t">Shelf life</text><text x="702" y="72" class="st">product_info cache</text>
+        <rect x="860" y="30" width="140" height="58" rx="7" class="bx"/><text x="872" y="54" class="t">Review screen</text><text x="872" y="72" class="st">user checks dates</text>
+        <rect x="520" y="128" width="140" height="58" rx="7" class="bx"/><text x="532" y="152" class="t">Rules parser</text><text x="532" y="170" class="st">no AI, basic lines</text>
+
+        <line x1="150" y1="59" x2="178" y2="59" class="ed" marker-end="url(#b)"/>
+        <line x1="320" y1="59" x2="348" y2="59" class="ed" marker-end="url(#b)"/>
+        <line x1="490" y1="59" x2="518" y2="59" class="ed-a" marker-end="url(#ba)"/>
+        <line x1="660" y1="59" x2="688" y2="59" class="ed" marker-end="url(#b)"/>
+        <line x1="830" y1="59" x2="858" y2="59" class="ed" marker-end="url(#b)"/>
+        <polyline points="420,88 420,157 518,157" class="ed" marker-end="url(#b)"/>
+        <text x="428" y="120" class="lb">AI off, budget spent</text>
+        <text x="428" y="133" class="lb">or Gemini fails</text>
+        <polyline points="660,157 930,157 930,90" class="ed" marker-end="url(#b)"/>
+        <text x="680" y="150" class="lb">source: "rules"</text>
+      </svg>
+      </div>
+      <figcaption>Item photos take a shorter path: <code>/v1/items/scan</code> sends the image straight to Gemini for a name and the printed date, skipping OCR. Dates that nobody checked stay marked "est." in the fridge.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>Decisions that shape it</h2>
+    <div class="facts">
+      <div class="fact"><h3>Offline first</h3><p>Every device keeps the whole household in AsyncStorage and works without the server. Sync is per-record last-write-wins, stamped in server time via a learned clock offset.</p></div>
+      <div class="fact"><h3>Server stays dumb</h3><p>The API never looks inside synced <code>data</code>. Its own tables are caches (products, FX), an AI usage counter and household membership.</p></div>
+      <div class="fact"><h3>No accounts</h3><p>An optional shared <code>API_TOKEN</code> gates the server. Household access is a per-device secret, stored as a hash.</p></div>
+      <div class="fact"><h3>Free to run</h3><p>Three containers with hard memory limits fit a 4 GB machine. Gemini's free tier is protected by per-minute and daily caps kept in Postgres.</p></div>
+      <div class="fact"><h3>One web origin</h3><p>The API image includes the exported Expo web build, so <code>localhost:3000</code> serves both the site and its API.</p></div>
+      <div class="fact"><h3>CI</h3><p>GitHub Actions typechecks and tests both apps, exports web, runs Playwright e2e and sprite checks, and builds both Docker images.</p></div>
+    </div>
+  </section>
+</main>
+</html>

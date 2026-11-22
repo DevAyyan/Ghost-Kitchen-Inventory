@@ -6,7 +6,7 @@ import type { MealDb, MealDetail } from '../src/mealdb.js';
 import type { Ocr, OcrLine } from '../src/ocr.js';
 
 export const testConfig = (over: Record<string, string> = {}): Config =>
-  loadConfig({ DATABASE_URL: 'memory', LOG_LEVEL: 'silent', ...over });
+  loadConfig({ DATABASE_URL: 'memory', LOG_LEVEL: 'silent', HOUSEHOLD_WAIT_MS: '200', ...over });
 
 /** Gemini stand-in: `handler` returns whatever the model would answer, or throws AiError. */
 export function fakeGemini(handler: (req: { system: string; prompt: string }) => unknown, enabled = true) {

@@ -6,7 +6,7 @@ import type { IsoDate, Item, ItemEvent } from '@/lib/domain/types';
  * a broken migration loses people's food, history and photos.
  */
 
-export const APP_STORE_VERSION = 8;
+export const APP_STORE_VERSION = 9;
 
 type Raw = Record<string, unknown> & { items?: Record<string, unknown>[]; events?: Record<string, unknown>[] };
 
@@ -47,6 +47,8 @@ export function migrateAppData(persisted: unknown, version: number): Raw {
       return { ...rest, itemId };
     });
   }
+  // v8 history said what happened but not who did it. New entries carry `by`; older ones stay as they are
+  // (counted for the household, and for you when you aren't sharing).
   return s;
 }
 

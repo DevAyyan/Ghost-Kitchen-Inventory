@@ -9,7 +9,7 @@ export function productKey(name: string): string {
 }
 
 /** Categories where spoilage is a food-safety risk. A floor under whatever the model says. */
-const ALWAYS_HIGH_RISK = new Set<Category>(['meat', 'fish', 'eggs', 'dairy', 'leftovers']);
+export const ALWAYS_HIGH_RISK = new Set<Category>(['meat', 'fish', 'eggs', 'dairy', 'leftovers']);
 
 /** Categories that always carry a diet tag, whatever the model listed (diet filters fail closed on them). */
 const CATEGORY_TAGS: Partial<Record<Category, Tag>> = { meat: 'meat', fish: 'fish', dairy: 'dairy', eggs: 'egg' };

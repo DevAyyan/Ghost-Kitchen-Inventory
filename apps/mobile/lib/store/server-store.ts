@@ -1,4 +1,4 @@
-import { api, ApiError, type RatesResult, type ServerStatus } from '@/lib/api';
+import { api, ApiError, type RatesResult, type ServerAuth, type ServerStatus } from '@/lib/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
@@ -10,6 +10,11 @@ interface ServerState {
   lastError: string | null;
   /** Latest exchange-rate snapshot from the server (kept for offline use). */
   rates: RatesResult | null;
+  /**
+   * How this server signs people in, from its last status reply. Kept, so a phone that's offline still
+   * knows (and keeps letting its signed-in person in). Null: never reached.
+   */
+  auth: ServerAuth | null;
   check: () => Promise<ServerStatus | null>;
   refreshRates: (base: string) => Promise<void>;
   markUnreachable: (message: string) => void;
@@ -25,10 +30,11 @@ export const useServer = create<ServerState>()(
       reachable: null,
       lastError: null,
       rates: null,
+      auth: null,
       async check() {
         try {
           const status = await api.status();
-          set({ status, reachable: true, lastError: null });
+          set({ status, reachable: true, lastError: null, auth: status.auth ?? { provider: 'none' } });
           return status;
         } catch (e) {
           set({ reachable: false, lastError: e instanceof ApiError ? e.message : 'Server unreachable.' });
@@ -50,9 +56,15 @@ export const useServer = create<ServerState>()(
     }),
     {
       name: 'ghost-kitchen-server',
-      version: 1,
+      version: 2,
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: (s) => ({ rates: s.rates }),
+      partialize: (s) => ({ rates: s.rates, auth: s.auth }),
+      // v1 kept only exchange rates. The sign-in mode is learned on the next status check.
+      migrate: (persisted, version) => {
+        const s = (persisted ?? {}) as { rates?: RatesResult | null; auth?: ServerAuth | null };
+        if (version < 2) s.auth = null;
+        return s as unknown as ServerState;
+      },
     }
   )
 );

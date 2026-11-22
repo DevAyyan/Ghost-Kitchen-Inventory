@@ -1,3 +1,5 @@
+import { fixMojibakeDeep } from './text.js';
+
 export interface MealSummary { id: string; name: string }
 
 export interface MealDetail {
@@ -71,7 +73,7 @@ export function createMealDb(baseUrl: string, apiKey: string, doFetch: typeof fe
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const res = await doFetch(`${root}/${path}`, { signal: AbortSignal.timeout(10_000) });
-        if (res.ok) return (await res.json()) as Record<string, unknown>;
+        if (res.ok) return fixMojibakeDeep((await res.json()) as Record<string, unknown>);
         if (res.status < 500 && res.status !== 429) break;
       } catch { /* retry once */ }
     }

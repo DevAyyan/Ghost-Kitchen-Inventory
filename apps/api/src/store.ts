@@ -1,5 +1,5 @@
 import pg from 'pg';
-import type { ProductInfo } from './schemas.js';
+import type { Avatar, Prefs, ProductInfo } from './schemas.js';
 
 export interface FxSnapshot {
   base: string;
@@ -23,6 +23,18 @@ export interface SyncRow extends SyncChange { seq: number }
 
 export interface HouseholdRow { id: string; name: string }
 
+/** A signed-in person (the id is Clerk's user id). Email and sign-in details stay with Clerk. */
+export interface Profile {
+  id: string;
+  displayName: string;
+  avatar: Avatar;
+  prefs: Prefs;
+  createdAt: string;
+}
+
+export type Role = 'owner' | 'member';
+export interface MemberRow { userId: string; role: Role; displayName: string; avatar: Avatar }
+
 /** Everything the API persists. Small on purpose: caches, a daily AI counter and shared-household data. */
 export interface Store {
   getProducts(keys: string[]): Promise<Map<string, ProductInfo>>;
@@ -39,9 +51,22 @@ export interface Store {
   getHousehold(id: string): Promise<HouseholdRow | null>;
   addMember(householdId: string, secretHash: string): Promise<void>;
   hasMember(householdId: string, secretHash: string): Promise<boolean>;
-  /** Returns how many members remain. */
+  /** Returns how many members remain (people and devices). */
   removeMember(householdId: string, secretHash: string): Promise<number>;
+  /** People with an account plus devices that still use a device key. */
   memberCount(householdId: string): Promise<number>;
+
+  getProfile(userId: string): Promise<Profile | null>;
+  putProfile(p: Profile): Promise<void>;
+  /** Removes the profile and the person's household memberships (not the households' data). */
+  deleteProfile(userId: string): Promise<void>;
+  createHouseholdForUser(h: HouseholdRow, userId: string): Promise<void>;
+  addUserMember(householdId: string, userId: string, role: Role): Promise<void>;
+  userRole(householdId: string, userId: string): Promise<Role | null>;
+  /** Returns how many members remain (people and devices). */
+  removeUserMember(householdId: string, userId: string): Promise<number>;
+  listUserMembers(householdId: string): Promise<MemberRow[]>;
+  userHouseholds(userId: string): Promise<HouseholdRow[]>;
   /** Removes the household, its invites and all of its shared data. */
   deleteHousehold(id: string): Promise<void>;
   createInvite(code: string, householdId: string, expiresAt: Date): Promise<void>;
@@ -85,6 +110,15 @@ export class PgStore implements Store {
         updated_at bigint NOT NULL, device_id text NOT NULL, seq bigint NOT NULL DEFAULT nextval('sync_seq'),
         PRIMARY KEY (household_id, collection, id));
       CREATE INDEX IF NOT EXISTS sync_records_seq ON sync_records (household_id, seq);
+      CREATE TABLE IF NOT EXISTS users (
+        id text PRIMARY KEY, display_name text NOT NULL, avatar jsonb NOT NULL, prefs jsonb NOT NULL DEFAULT '{}',
+        created_at timestamptz NOT NULL DEFAULT now());
+      CREATE TABLE IF NOT EXISTS household_users (
+        household_id text NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+        user_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        role text NOT NULL CHECK (role IN ('owner', 'member')), joined_at timestamptz NOT NULL DEFAULT now(),
+        PRIMARY KEY (household_id, user_id));
+      CREATE INDEX IF NOT EXISTS household_users_user ON household_users (user_id);
     `);
   }
 
@@ -164,8 +198,63 @@ export class PgStore implements Store {
   }
 
   async memberCount(householdId: string) {
-    const { rows } = await this.pool.query<{ n: string }>('SELECT count(*) AS n FROM household_members WHERE household_id = $1', [householdId]);
+    const { rows } = await this.pool.query<{ n: string }>(
+      `SELECT (SELECT count(*) FROM household_members WHERE household_id = $1)
+            + (SELECT count(*) FROM household_users WHERE household_id = $1) AS n`, [householdId]);
     return Number(rows[0]?.n ?? 0);
+  }
+
+  async getProfile(userId: string) {
+    const { rows } = await this.pool.query<{ id: string; display_name: string; avatar: Avatar; prefs: Prefs; created_at: Date }>(
+      'SELECT id, display_name, avatar, prefs, created_at FROM users WHERE id = $1', [userId]);
+    const r = rows[0];
+    return r ? { id: r.id, displayName: r.display_name, avatar: r.avatar, prefs: r.prefs, createdAt: r.created_at.toISOString() } : null;
+  }
+
+  async putProfile(p: Profile) {
+    await this.pool.query(
+      `INSERT INTO users (id, display_name, avatar, prefs) VALUES ($1, $2, $3, $4)
+       ON CONFLICT (id) DO UPDATE SET display_name = EXCLUDED.display_name, avatar = EXCLUDED.avatar, prefs = EXCLUDED.prefs`,
+      [p.id, p.displayName, JSON.stringify(p.avatar), JSON.stringify(p.prefs)]);
+  }
+
+  async deleteProfile(userId: string) {
+    await this.pool.query('DELETE FROM users WHERE id = $1', [userId]);
+  }
+
+  async createHouseholdForUser(h: HouseholdRow, userId: string) {
+    await this.pool.query('INSERT INTO households (id, name) VALUES ($1, $2)', [h.id, h.name]);
+    await this.addUserMember(h.id, userId, 'owner');
+  }
+
+  async addUserMember(householdId: string, userId: string, role: Role) {
+    await this.pool.query(
+      'INSERT INTO household_users (household_id, user_id, role) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING', [householdId, userId, role]);
+  }
+
+  async userRole(householdId: string, userId: string) {
+    const { rows } = await this.pool.query<{ role: Role }>(
+      'SELECT role FROM household_users WHERE household_id = $1 AND user_id = $2', [householdId, userId]);
+    return rows[0]?.role ?? null;
+  }
+
+  async removeUserMember(householdId: string, userId: string) {
+    await this.pool.query('DELETE FROM household_users WHERE household_id = $1 AND user_id = $2', [householdId, userId]);
+    return this.memberCount(householdId);
+  }
+
+  async listUserMembers(householdId: string) {
+    const { rows } = await this.pool.query<{ user_id: string; role: Role; display_name: string; avatar: Avatar }>(
+      `SELECT hu.user_id, hu.role, u.display_name, u.avatar FROM household_users hu JOIN users u ON u.id = hu.user_id
+       WHERE hu.household_id = $1 ORDER BY hu.joined_at`, [householdId]);
+    return rows.map((r) => ({ userId: r.user_id, role: r.role, displayName: r.display_name, avatar: r.avatar }));
+  }
+
+  async userHouseholds(userId: string) {
+    const { rows } = await this.pool.query<HouseholdRow>(
+      `SELECT h.id, h.name FROM households h JOIN household_users hu ON hu.household_id = h.id
+       WHERE hu.user_id = $1 ORDER BY hu.joined_at`, [userId]);
+    return rows;
   }
 
   async deleteHousehold(id: string) {
@@ -238,11 +327,43 @@ export class MemoryStore implements Store {
   async getHousehold(id: string) { return this.households.get(id) ?? null; }
   async addMember(householdId: string, secretHash: string) { this.members.get(householdId)?.add(secretHash); }
   async hasMember(householdId: string, secretHash: string) { return this.members.get(householdId)?.has(secretHash) ?? false; }
-  async removeMember(householdId: string, secretHash: string) { this.members.get(householdId)?.delete(secretHash); return this.members.get(householdId)?.size ?? 0; }
-  async memberCount(householdId: string) { return this.members.get(householdId)?.size ?? 0; }
+  async removeMember(householdId: string, secretHash: string) { this.members.get(householdId)?.delete(secretHash); return this.memberCount(householdId); }
+  async memberCount(householdId: string) {
+    return (this.members.get(householdId)?.size ?? 0) + [...this.userMembers.values()].filter((m) => m.householdId === householdId).length;
+  }
+  profiles = new Map<string, Profile>();
+  userMembers = new Map<string, { householdId: string; userId: string; role: Role; at: number }>();
+  private joined = 0;
+  async getProfile(userId: string) { return this.profiles.get(userId) ?? null; }
+  async putProfile(p: Profile) { this.profiles.set(p.id, p); }
+  async deleteProfile(userId: string) {
+    this.profiles.delete(userId);
+    for (const [k, m] of this.userMembers) if (m.userId === userId) this.userMembers.delete(k);
+  }
+  async createHouseholdForUser(h: HouseholdRow, userId: string) {
+    this.households.set(h.id, h);
+    this.members.set(h.id, new Set());
+    await this.addUserMember(h.id, userId, 'owner');
+  }
+  async addUserMember(householdId: string, userId: string, role: Role) {
+    const k = `${householdId}|${userId}`;
+    if (!this.userMembers.has(k)) this.userMembers.set(k, { householdId, userId, role, at: ++this.joined });
+  }
+  async userRole(householdId: string, userId: string) { return this.userMembers.get(`${householdId}|${userId}`)?.role ?? null; }
+  async removeUserMember(householdId: string, userId: string) { this.userMembers.delete(`${householdId}|${userId}`); return this.memberCount(householdId); }
+  async listUserMembers(householdId: string) {
+    return [...this.userMembers.values()].filter((m) => m.householdId === householdId && this.profiles.has(m.userId))
+      .sort((a, b) => a.at - b.at)
+      .map((m) => { const p = this.profiles.get(m.userId)!; return { userId: m.userId, role: m.role, displayName: p.displayName, avatar: p.avatar }; });
+  }
+  async userHouseholds(userId: string) {
+    return [...this.userMembers.values()].filter((m) => m.userId === userId).sort((a, b) => a.at - b.at)
+      .flatMap((m) => { const h = this.households.get(m.householdId); return h ? [h] : []; });
+  }
   async deleteHousehold(id: string) {
     this.households.delete(id);
     this.members.delete(id);
+    for (const [k, m] of this.userMembers) if (m.householdId === id) this.userMembers.delete(k);
     for (const [k, v] of this.invites) if (v.householdId === id) this.invites.delete(k);
     for (const [k, v] of this.records) if (v.householdId === id) this.records.delete(k);
   }

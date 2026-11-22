@@ -1,3 +1,4 @@
+import { useSettings } from '@/lib/store/settings-store';
 import { ConfirmDialog } from '@/components/common/confirm-dialog';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
@@ -6,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Text } from '@/components/ui/text';
 import { ApiError, isApiConfigured } from '@/lib/api';
 import { useHousehold } from '@/lib/store/household-store';
+import { useAuthStore } from '@/lib/store/auth-store';
 import { toast } from '@/lib/store/toast';
 import { createHousehold, inviteCode, joinHousehold, leaveHousehold, syncNow } from '@/lib/sync';
 import { RefreshCw, UserPlus, Users } from 'lucide-react-native';
@@ -16,6 +18,8 @@ import { Section, StatusLine } from './parts';
 /** Create, join, invite to and leave a shared household. */
 export function HouseholdSection() {
   const household = useHousehold((st) => st.household);
+  // Signed in, the account owns the kitchen: every device it's signed in on shows the same one.
+  const signedIn = useAuthStore((st) => !!st.me);
   const syncing = useHousehold((st) => st.syncing);
   const lastSyncAt = useHousehold((st) => st.lastSyncAt);
   const lastError = useHousehold((st) => st.lastError);
@@ -26,6 +30,7 @@ export function HouseholdSection() {
   const [invite, setInvite] = React.useState<{ code: string; expiresAt: string } | null>(null);
   const [confirmLeave, setConfirmLeave] = React.useState(false);
   const configured = isApiConfigured();
+  const demoMode = useSettings((st) => st.settings.demoMode);
 
   const run = async (what: () => Promise<void>, ok: string) => {
     setBusy(true);
@@ -38,7 +43,9 @@ export function HouseholdSection() {
         <Text className="text-muted-foreground mb-3 text-sm">
           Share one fridge, meal plan and shopping list with the people you live with. Changes sync through your Ghost Kitchen server. Photos stay on the phone that took them.
         </Text>
-        {!configured ? (
+        {demoMode ? (
+          <Text className="text-muted-foreground text-sm">Households need your server. Turn demo mode off to share.</Text>
+        ) : !configured ? (
           <Text className="text-muted-foreground text-sm">Set your server address above first.</Text>
         ) : (
           <View className="gap-4">
@@ -72,7 +79,9 @@ export function HouseholdSection() {
     <Section title="Household">
       <View className="gap-3">
         <View className="gap-1.5" aria-live="polite">
-          <StatusLine state="ok" text={`${household.name} · ${household.members} device${household.members === 1 ? '' : 's'}`} />
+          <StatusLine state="ok" text={signedIn
+            ? `${household.name} · ${household.members === 1 ? 'just you' : `${household.members} people`}, on every device you sign in on`
+            : `${household.name} · ${household.members} device${household.members === 1 ? '' : 's'}`} />
           {syncing ? (
             <StatusLine state="pending" text="Syncing…" />
           ) : lastError ? (
@@ -95,20 +104,40 @@ export function HouseholdSection() {
           <Button variant="ghost" className="h-11" disabled={syncing} onPress={() => void syncNow()}>
             <Icon as={RefreshCw} size={16} /><Text>Sync now</Text>
           </Button>
-          <Button variant="ghost" className="h-11" onPress={() => setConfirmLeave(true)}>
-            <Text>Leave household</Text>
-          </Button>
+          {/* Signed in and alone, there's nothing to leave: it's the account's own kitchen. */}
+          {(!signedIn || household.members > 1) && (
+            <Button variant="ghost" className="h-11" onPress={() => setConfirmLeave(true)}>
+              <Text>Leave household</Text>
+            </Button>
+          )}
         </View>
+        {signedIn && (
+          <View className="gap-1.5">
+            <Label nativeID="hh-code-2">Join someone else's kitchen</Label>
+            <View className="flex-row flex-wrap gap-2">
+              <Input aria-labelledby="hh-code-2" value={code} onChangeText={setCode} placeholder="Their 8-letter invite code" autoCapitalize="characters" autoCorrect={false} maxLength={12} className="h-11 min-w-40 flex-1" />
+              <Button variant="outline" className="h-11" disabled={busy || code.replace(/[\s-]/g, '').length !== 8} onPress={() => void run(async () => { await joinHousehold(code); setCode(''); }, 'Joined. Your food is now shared, on all your devices.')}>
+                <Text>Join</Text>
+              </Button>
+            </View>
+            <Text className="text-muted-foreground text-xs">Your food moves into theirs, and all your devices switch to it.</Text>
+          </View>
+        )}
         <Text className="text-muted-foreground text-xs">Photos stay on the phone that took them. Settings like currency and diet are per device.</Text>
       </View>
       <ConfirmDialog
         open={confirmLeave}
         onOpenChange={setConfirmLeave}
         title={`Leave ${household.name}?`}
-        description="This device stops sharing. It keeps a copy of everything as it is now; the others keep theirs. To join again you'll need a new invite."
+        description={signedIn
+          ? 'Your account leaves it on all your devices. You keep a copy of the food as it is now, in a kitchen of your own; the others keep theirs. To join again you need a new invite.'
+          : 'This device stops sharing. It keeps a copy of everything as it is now; the others keep theirs. To join again you need a new invite.'}
         confirmLabel="Leave"
         destructive
-        onConfirm={() => void leaveHousehold().then((told) => { setInvite(null); toast(told ? 'You left the household' : "You left on this device. The server couldn't be reached, so it may still list this device."); })}
+        onConfirm={() => void leaveHousehold().then((told) => {
+          setInvite(null);
+          toast(!told ? "Couldn't reach the server, so nothing changed for your other devices. Try again." : signedIn ? 'You left. Your food is in a kitchen of your own now.' : 'You left the household');
+        })}
       />
     </Section>
   );

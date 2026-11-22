@@ -1,3 +1,4 @@
+import { IntroSheet } from '@/components/onboarding/intro-sheet';
 import { AppTabBar } from '@/components/shell/tab-bar';
 import { TopBar } from '@/components/shell/top-bar';
 import { useLayout } from '@/lib/hooks';
@@ -26,6 +27,7 @@ export default function TabsLayout() {
         <Tabs.Screen name="graveyard" options={{ title: 'Graveyard' }} />
         <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
       </Tabs>
+      <IntroSheet />
     </View>
   );
 }

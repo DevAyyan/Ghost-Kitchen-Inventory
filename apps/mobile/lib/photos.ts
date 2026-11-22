@@ -110,9 +110,11 @@ export async function captureReceipt(source: PhotoSource): Promise<ReceiptPhoto 
   try {
     let input: string;
     let revoke: (() => void) | undefined;
+    let heic = false;
     if (Platform.OS === 'web') {
       const file = await pickWebFile(source === 'camera');
       if (!file) return null;
+      heic = /hei[cf]/i.test(file.type) || /\.hei[cf]$/i.test(file.name);
       if (!file.type.startsWith('image/')) return { error: 'That file is not an image. Try a JPG or PNG.' };
       input = URL.createObjectURL(file);
       revoke = () => URL.revokeObjectURL(input);
@@ -138,6 +140,10 @@ export async function captureReceipt(source: PhotoSource): Promise<ReceiptPhoto 
         return { upload: blob, previewUri: dataUri };
       }
       return { upload: { uri: saved.uri }, previewUri: saved.uri };
+    } catch (e) {
+      // Chrome and Firefox can't decode HEIC; Android and Safari can. Say why instead of a vague failure.
+      if (heic) return { error: "This browser can't open HEIC photos. Save the photo as JPG or PNG, or use the Android app." };
+      throw e;
     } finally {
       revoke?.();
     }

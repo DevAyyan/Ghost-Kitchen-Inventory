@@ -1,10 +1,14 @@
+import { useTour } from '@/lib/store/tour-store';
 import { ConfirmDialog } from '@/components/common/confirm-dialog';
 import { EmptyState } from '@/components/common/empty-state';
 import { FilterChip } from '@/components/common/filter-chip';
 import { ResponsiveSheet } from '@/components/common/responsive-sheet';
 import { Screen } from '@/components/common/screen';
 import { AttentionCard } from '@/components/fridge/attention-card';
-import { FridgeCabinet } from '@/components/fridge/fridge-cabinet';
+import { FridgeCabinet, useKitchen } from '@/components/fridge/fridge-cabinet';
+import { ZoomOverlay } from '@/components/fridge/kitchen-scene';
+import { ajarOf, sceneZones } from '@/lib/domain/kitchen-scene';
+import { OpenCompartment } from '@/components/fridge/open-compartment';
 import { HauntPanel } from '@/components/fridge/haunt-panel';
 import { ItemDetails } from '@/components/fridge/item-details';
 import { QuickSheet } from '@/components/fridge/quick-sheet';
@@ -22,9 +26,10 @@ import type { Item } from '@/lib/domain/types';
 import { useActiveItems, useLayout, useStageCounts } from '@/lib/hooks';
 import { useApp } from '@/lib/store/app-store';
 import { useSettings } from '@/lib/store/settings-store';
+import { VoiceButton, VoiceSheet } from '@/components/fridge/voice-sheet';
 import { toast } from '@/lib/store/toast';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowLeft, List, Plus, Refrigerator, Search } from 'lucide-react-native';
+import { ArrowLeft, List, Plus, Refrigerator, Search, X } from 'lucide-react-native';
 import * as React from 'react';
 import { ScrollView, View } from 'react-native';
 
@@ -32,8 +37,8 @@ const FILTERS = new Set<StageFilterValue>(['all', 'haunting', 'fresh', 'aging', 
 
 export default function FridgeScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ stage?: string; q?: string; item?: string }>();
-  const { isPhone, hasSidePanel, width } = useLayout();
+  const params = useLocalSearchParams<{ stage?: string; q?: string; item?: string; demo?: string; tour?: string }>();
+  const { isPhone, hasSidePanel } = useLayout();
   const items = useActiveItems();
   const counts = useStageCounts(items);
   const loadSampleData = useApp((s) => s.loadSampleData);
@@ -43,8 +48,9 @@ export default function FridgeScreen() {
   const [buryOpen, setBuryOpen] = React.useState(false);
   const [keyOpen, setKeyOpen] = React.useState(false);
   const [quickId, setQuickId] = React.useState<string | null>(null);
-  // Matches FridgeCabinet: from here the pantry stands beside the fridge, with room for Tonight under it.
-  const sideBySide = width >= 1024;
+  // Doors with food turning behind them stand ajar. Counted over everything stored, not just the filter.
+  const ajar = React.useMemo(() => ajarOf(sceneZones(items, items)), [items]);
+  const kitchenDoor = useKitchen(ajar);
 
   const filter = (FILTERS.has(params.stage as StageFilterValue) ? params.stage : 'all') as StageFilterValue;
   const q = params.q ?? '';
@@ -55,6 +61,26 @@ export default function FridgeScreen() {
   const select = (id: string) => setParams({ item: params.item === id && hasSidePanel ? undefined : id });
   const closeItem = () => setParams({ item: undefined });
   const kitchen = view !== 'list';
+  const [searchOpen, setSearchOpen] = React.useState(false);
+  const [voiceOpen, setVoiceOpen] = React.useState(false);
+  // A search in the address (a shared link, or Back) keeps the field open.
+  const searching = searchOpen || q !== '';
+  const openZone = kitchenDoor.door.phase === 'inside' ? kitchenDoor.door.zone : null;
+
+  // Demo link (`/?demo=1`, see README): fills an empty fridge with the sample data, once, then drops the
+  // parameter so a reload or a shared link doesn't keep adding more.
+  const demo = params.demo === '1' || params.tour === '1';
+  const tour = params.tour === '1';
+  React.useEffect(() => {
+    if (!demo) return;
+    // The demo link also turns on demo mode, so scanning and recipes work with no server or internet.
+    useSettings.getState().update({ demoMode: true });
+    if (items.length === 0) { loadSampleData(); if (!tour) toast('Demo fridge loaded. Demo mode is on; turn it off and delete the samples in Settings.'); }
+    // The tour link skips the welcome sheet: the tour tells the same story, step by step.
+    if (tour) { useSettings.getState().update({ introSeen: true }); useTour.getState().start(); }
+    // replace, not setParams: on web setParams leaves an emptied parameter in the address bar.
+    router.replace('/');
+  }, [demo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // One line that says what matters: how much needs eating soon, and what it's worth.
   const hero = items.length === 0
@@ -68,39 +94,68 @@ export default function FridgeScreen() {
       title="Your fridge"
       description={hero}
       actions={
-        // Adding food is one place: the Scan screen (photo, receipt, or by hand).
-        <Button
-          variant="outline"
-          className={isPhone ? 'h-11 w-11 px-0' : 'h-11'}
-          accessibilityLabel="Add food"
-          onPress={() => router.navigate('/scan')}>
-          <Icon as={Plus} size={16} />
-          {!isPhone && <Text>Add food</Text>}
-        </Button>
+        <View className="flex-row items-center gap-2">
+          {/* Phones: search folds into this button and the two view buttons into one, so the kitchen starts
+              a row higher. Wider screens keep the search field and both view buttons below. */}
+          {isPhone && (
+            <>
+              <Button
+                variant="outline"
+                className="h-11 w-11 px-0"
+                accessibilityLabel={searching ? 'Close search' : 'Search the fridge'}
+                aria-expanded={searching}
+                onPress={() => { if (searching) setParams({ q: undefined }); setSearchOpen(!searching); }}>
+                <Icon as={searching ? X : Search} size={16} />
+              </Button>
+              <Button
+                variant="outline"
+                className="h-11 w-11 px-0"
+                accessibilityLabel={kitchen ? 'Show as a use-first list' : 'Show as the kitchen'}
+                onPress={() => updateSettings({ fridgeView: kitchen ? 'list' : 'kitchen' })}>
+                <Icon as={kitchen ? List : Refrigerator} size={16} />
+              </Button>
+            </>
+          )}
+          <VoiceButton compact={isPhone} onPress={() => setVoiceOpen(true)} />
+          {/* Adding food is one place: the Scan screen (photo, receipt, or by hand). */}
+          <Button
+            variant="outline"
+            className={isPhone ? 'h-11 w-11 px-0' : 'h-11'}
+            accessibilityLabel="Add food"
+            onPress={() => router.navigate('/scan')}>
+            <Icon as={Plus} size={16} />
+            {!isPhone && <Text>Add food</Text>}
+          </Button>
+        </View>
       }>
-      <View className="flex-row items-center gap-2">
-        <View className="relative min-w-0 flex-1">
-          <View className="absolute bottom-0 left-3 top-0 z-10 justify-center" pointerEvents="none">
-            <Icon as={Search} size={16} className="text-muted-foreground" />
+      {(!isPhone || searching) && (
+        <View className="flex-row items-center gap-2">
+          <View className="relative min-w-0 flex-1">
+            <View className="absolute bottom-0 left-3 top-0 z-10 justify-center" pointerEvents="none">
+              <Icon as={Search} size={16} className="text-muted-foreground" />
+            </View>
+            <Input
+              value={q}
+              onChangeText={(t) => setParams({ q: t || undefined })}
+              placeholder="Search the fridge…"
+              accessibilityLabel="Search the fridge"
+              className="h-11 pl-9"
+              autoCorrect={false}
+              autoFocus={isPhone}
+            />
           </View>
-          <Input
-            value={q}
-            onChangeText={(t) => setParams({ q: t || undefined })}
-            placeholder="Search the fridge…"
-            accessibilityLabel="Search the fridge"
-            className="h-11 pl-9"
-            autoCorrect={false}
-          />
+          {!isPhone && (
+            <View role="radiogroup" aria-label="Show the fridge as" className="flex-row gap-1">
+              <FilterChip pressed={kitchen} onPress={() => updateSettings({ fridgeView: 'kitchen' })} accessibilityLabel="Kitchen view">
+                <Icon as={Refrigerator} size={16} className={kitchen ? 'text-primary' : 'text-muted-foreground'} />
+              </FilterChip>
+              <FilterChip pressed={!kitchen} onPress={() => updateSettings({ fridgeView: 'list' })} accessibilityLabel="Use-first list">
+                <Icon as={List} size={16} className={!kitchen ? 'text-primary' : 'text-muted-foreground'} />
+              </FilterChip>
+            </View>
+          )}
         </View>
-        <View role="radiogroup" aria-label="Show the fridge as" className="flex-row gap-1">
-          <FilterChip pressed={kitchen} onPress={() => updateSettings({ fridgeView: 'kitchen' })} accessibilityLabel="Kitchen view">
-            <Icon as={Refrigerator} size={16} className={kitchen ? 'text-primary' : 'text-muted-foreground'} />
-          </FilterChip>
-          <FilterChip pressed={!kitchen} onPress={() => updateSettings({ fridgeView: 'list' })} accessibilityLabel="Use-first list">
-            <Icon as={List} size={16} className={!kitchen ? 'text-primary' : 'text-muted-foreground'} />
-          </FilterChip>
-        </View>
-      </View>
+      )}
       <StageFilter
         value={filter}
         onChange={(v) => setParams({ stage: v === 'all' ? undefined : v })}
@@ -134,27 +189,35 @@ export default function FridgeScreen() {
           }
         />
       ) : kitchen ? (
-        <FridgeCabinet
-          items={visible}
-          allItems={items}
-          selectedId={selected?.id ?? null}
-          onSelect={select}
-          onQuick={setQuickId}
-          filtered={filter !== 'all' || q !== ''}
-          filterKey={`${filter}|${q}`}
-          belowPantry={sideBySide ? <TonightCard items={items} /> : undefined}
-        />
+        <FridgeCabinet kitchen={kitchenDoor} items={visible} allItems={items} filtered={filter !== 'all' || q !== ''} onSelect={select} />
       ) : (
         <UseFirstList items={visible} onOpen={select} onUsed={act.usedAll} onBinned={act.binned} />
       )}
 
-      {!(sideBySide && kitchen && items.length > 0) && <TonightCard items={items} />}
+      <TonightCard items={items} />
+      <VoiceSheet open={voiceOpen} onClose={() => setVoiceOpen(false)} />
     </Screen>
   );
 
   return (
     <View className="flex-1 flex-row">
-      <View className="flex-1">{body}</View>
+      <View className="flex-1">
+        {/* An open compartment takes the whole page, so every item in it is in view. */}
+        {kitchen && openZone ? (
+          <OpenCompartment
+            zone={openZone}
+            items={visible}
+            selectedId={selected?.id ?? null}
+            onSelect={select}
+            onQuick={setQuickId}
+            filtered={filter !== 'all' || q !== ''}
+            onClose={kitchenDoor.close}
+            onSwitch={kitchenDoor.switchTo}
+            counts={{ freezer: visible.filter((i) => i.zone === 'freezer').length, fridge: visible.filter((i) => i.zone === 'fridge').length, pantry: visible.filter((i) => i.zone === 'pantry').length }}
+          />
+        ) : body}
+      </View>
+      <ZoomOverlay door={kitchenDoor.door} rect={kitchenDoor.rect} ajar={ajar} />
 
       {hasSidePanel && (
         <View role="complementary" aria-label="Details" className="border-border bg-card w-80 border-l">

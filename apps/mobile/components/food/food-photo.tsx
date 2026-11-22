@@ -2,7 +2,8 @@ import { Icon } from '@/components/ui/icon';
 import type { Category, Stage } from '@/lib/domain/types';
 import { cn } from '@/lib/utils';
 import * as React from 'react';
-import { Image, View } from 'react-native';
+import { pixelPhoto } from '@/lib/pixel-photo';
+import { Image, Platform, View, type ImageStyle } from 'react-native';
 import { foodIcon } from './food-icon';
 
 export { CATEGORY_ICON } from './food-icon';
@@ -11,6 +12,8 @@ const SIZES = {
   xs: { box: 'h-6 w-6 rounded', icon: 12 },
   sm: { box: 'h-10 w-10 rounded-md', icon: 18 },
   md: { box: 'h-14 w-14 rounded-md', icon: 24 },
+  /** Fridge tiles: a step smaller on phones, so more fit on a shelf. */
+  tile: { box: 'h-11 w-11 rounded-md md:h-14 md:w-14', icon: 22 },
   lg: { box: 'h-40 w-40 rounded-lg', icon: 48 },
 } as const;
 
@@ -25,13 +28,25 @@ interface FoodPhotoProps {
   className?: string;
   /** Overlays drawn over the photo and clipped to it (decay effects on fridge tiles). */
   children?: React.ReactNode;
+  /** Show the photo as pixel art (shelf tiles). The full photo is used until the pixel copy is ready. */
+  pixel?: boolean;
 }
 
+const pixelated: ImageStyle = Platform.OS === 'web' ? ({ imageRendering: 'pixelated' } as ImageStyle) : {};
+
 /** The user's own photo of the food, or a category icon placeholder. Decorative: callers label it. */
-export function FoodPhoto({ photoUri, category, name, size = 'md', stage, className, children }: FoodPhotoProps) {
+export function FoodPhoto({ photoUri, category, name, size = 'md', stage, className, children, pixel }: FoodPhotoProps) {
   const s = SIZES[size];
   const [failed, setFailed] = React.useState(false);
+  const [pixelUri, setPixelUri] = React.useState<string | null>(null);
   React.useEffect(() => setFailed(false), [photoUri]);
+  React.useEffect(() => {
+    setPixelUri(null);
+    if (!pixel || !photoUri) return;
+    let live = true;
+    void pixelPhoto(photoUri).then((u) => { if (live) setPixelUri(u); });
+    return () => { live = false; };
+  }, [pixel, photoUri]);
   const showPhoto = !!photoUri && !failed;
 
   return (
@@ -41,9 +56,10 @@ export function FoodPhoto({ photoUri, category, name, size = 'md', stage, classN
       className={cn('bg-muted items-center justify-center overflow-hidden', s.box, className)}>
       {showPhoto ? (
         <Image
-          source={{ uri: photoUri }}
+          source={{ uri: pixelUri ?? photoUri }}
           onError={() => setFailed(true)}
           resizeMode="cover"
+          style={pixelUri ? pixelated : undefined}
           className={cn('h-full w-full', stage === 'spoiled' && 'opacity-40', stage === 'rotting' && 'opacity-80')}
         />
       ) : (

@@ -4,11 +4,11 @@
     {
       "name": "Food-safety review",
       "trigger": "PostFileSave",
-      "description": "Reviews saves to the expiry, storage, product and recipe logic against the food-safety steering rules.",
-      "matcher": "(apps/mobile/lib/domain/expiry\\.ts|apps/api/src/products\\.ts|apps/api/src/recipes\\.ts|apps/mobile/lib/domain/storage\\.ts)$",
+      "description": "Reviews saves to the expiry, storage, product, recipe, surplus, voice, planner and demo-data logic against the food-safety steering rules.",
+      "matcher": "(apps/mobile/lib/domain/(expiry|storage|surplus|voice|rescue-plan)\\.ts|apps/mobile/lib/domain/rules/food-safety\\.json|apps/mobile/lib/demo/products\\.ts|apps/api/src/(products|recipes|voice)\\.ts)$",
       "action": {
         "type": "agent",
-        "prompt": "A food-safety file was just saved. Check the change against .kiro/steering/food-safety.md: high-risk categories, the no-pantry rule, isCookable, fail-closed diet filtering and the stage thresholds. If any rule got weaker, say so and suggest a fix. Also check that the tests in apps/api/test and the stage key still match."
+        "prompt": "A food-safety file was just saved. Check the change against .kiro/steering/food-safety.md: high-risk categories, the no-pantry rule, isCookable, fail-closed diet filtering and the stage thresholds. Also check that no user-facing text says food past its date is safe, that surplus offers never include high-risk food, that voice logging never applies an action without the user confirming it, and that demo product facts and recipe diets stay conservative. If any rule got weaker, say so and suggest a fix. Also check that the tests in apps/api/test and the stage key still match."
       }
     }
   ]

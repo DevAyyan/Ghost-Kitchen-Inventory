@@ -42,14 +42,15 @@ export function ResponsiveSheet({ open, onClose, title, description, children, f
           role="dialog"
           aria-label={title}
           className={cn(
-            'border-border bg-popover',
-            isPhone ? 'max-h-[85%] rounded-t-xl border-t' : 'h-full w-full max-w-md border-l'
+            // Pixel frame: a lit edge facing the page, with a dark line just inside it.
+            'border-border bg-popover border-foreground/25',
+            isPhone ? 'max-h-[85%] border-t-4' : 'h-full w-full max-w-md border-l-4'
           )}
           style={{ paddingBottom: Math.max(insets.bottom, 16), paddingTop: isPhone ? 0 : insets.top }}>
-          {isPhone && <View className="bg-muted-foreground/40 mx-auto mt-2 h-1 w-10 rounded-full" />}
-          <View className="flex-row items-start gap-3 px-4 pb-2 pt-3">
+          {isPhone && <View className="bg-muted-foreground/40 mx-auto mt-2 h-1.5 w-12" />}
+          <View className="border-border flex-row items-start gap-3 border-b-2 px-4 pb-2 pt-3">
             <View className="flex-1 gap-1">
-              <Text role="heading" aria-level={2} className="text-lg font-semibold">
+              <Text role="heading" aria-level={2} className="font-display text-xl">
                 {title}
               </Text>
               {description ? <Text className="text-muted-foreground text-sm">{description}</Text> : null}
@@ -59,7 +60,7 @@ export function ResponsiveSheet({ open, onClose, title, description, children, f
               accessibilityRole="button"
               accessibilityLabel="Close"
               hitSlop={8}
-              className="active:bg-accent -mr-2 h-11 w-11 items-center justify-center rounded-md">
+              className="active:bg-accent border-border -mr-2 h-11 w-11 items-center justify-center border-2 border-b-4 active:border-b-2">
               <Icon as={X} size={20} className="text-muted-foreground" />
             </Pressable>
           </View>
@@ -69,7 +70,7 @@ export function ResponsiveSheet({ open, onClose, title, description, children, f
             keyboardShouldPersistTaps="handled">
             {children}
           </Body>
-          {footer ? <View className="border-border flex-row flex-wrap gap-2 border-t px-4 pt-3">{footer}</View> : null}
+          {footer ? <View className="border-border flex-row flex-wrap gap-2 border-t-2 px-4 pt-3">{footer}</View> : null}
         </View>
       </View>
     </Modal>

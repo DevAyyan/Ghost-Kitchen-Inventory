@@ -42,6 +42,17 @@ export function shortRemaining(rem: number): string {
   return `${-rem}d over`;
 }
 
+/**
+ * The date line on a food tile: one short line, so every tile on a shelf is the same height. An estimate
+ * says "est." in place of "left" ("5d est.") rather than adding it on ("5d left · est."), which wrapped on
+ * a phone tile and made new food stand taller than the rest. Far-off dates are in months.
+ */
+export function tileDateText(rem: number, confirmed: boolean): string {
+  const when = rem > 99 ? `${Math.round(rem / 30)}mo` : rem > 0 ? `${rem}d` : rem === 0 ? 'today' : `${-rem}d over`;
+  if (confirmed) return rem > 0 ? `${when} left` : when;
+  return `${when} est.`;
+}
+
 /** Food-safety guidance shown in item details. Advisory only. */
 export function safetyAdvice(item: Item, stage: Stage): { tone: 'warning' | 'danger'; text: string } | null {
   if (stage === 'spoiled' && item.highRisk) {
@@ -98,6 +109,20 @@ export function lifeOf(category: Category, info?: ProductInfo | null, stored?: L
   return info?.shelfLifeDays ?? stored ?? CATEGORY_FALLBACK[category].life;
 }
 
+/**
+ * Sections this food can be stocked in: any with a shelf life for it, never the pantry for high-risk food
+ * (food-safety floor, whatever the shelf-life table or the model says). Always includes its usual section.
+ */
+export function storableZones(category: Category, info?: ProductInfo | null): Zone[] {
+  const cat = info?.category ?? category;
+  const life = lifeOf(cat, info);
+  const highRisk = (info?.highRisk ?? false) || HIGH_RISK_CATEGORIES.has(cat);
+  const home = homeZone(cat, info);
+  return (['fridge', 'freezer', 'pantry'] as const).filter(
+    (z) => !(z === 'pantry' && highRisk) && (z === home || life[z] !== null),
+  );
+}
+
 /** Where an item normally goes. */
 export function homeZone(category: Category, info?: ProductInfo | null): Zone {
   return info?.homeZone ?? CATEGORY_FALLBACK[category].home;
@@ -128,7 +153,9 @@ export function makeItem(input: {
 }): Item {
   const info = input.info ?? null;
   const category = info?.category ?? input.category ?? 'other';
-  const zone = input.zone ?? homeZone(category, info);
+  // A section this food can't be kept in (high-risk food in the pantry) falls back to its usual one.
+  const wanted = input.zone ?? homeZone(category, info);
+  const zone = storableZones(category, info).includes(wanted) ? wanted : homeZone(category, info);
   const est = estimateExpiry(category, input.purchased, zone, info);
   const expires = input.expires ?? est.expires;
   return {

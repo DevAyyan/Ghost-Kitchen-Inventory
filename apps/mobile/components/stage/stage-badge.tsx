@@ -9,7 +9,7 @@ import { STAGE_STYLE } from './stage-style';
 export function StageBadge({ stage, className }: { stage: Stage; className?: string }) {
   const s = STAGE_STYLE[stage];
   return (
-    <View className={cn('flex-row items-center gap-1 self-start rounded-full border px-2 py-0.5', s.border, s.tint, className)}>
+    <View className={cn('flex-row items-center gap-1 self-start rounded-sm border px-2 py-0.5', s.border, s.tint, className)}>
       <Icon as={s.icon} size={12} className={s.text} />
       <Text className={cn('text-xs font-semibold', s.text)}>{s.label}</Text>
     </View>

@@ -104,3 +104,31 @@ function stripUnsupported(node: unknown): unknown {
 export function geminiSchema(schema: z.ZodType): Record<string, unknown> {
   return stripUnsupported(z.toJSONSchema(schema, { target: 'draft-7' })) as Record<string, unknown>;
 }
+
+// ---- Accounts and profiles.
+
+/** One of the five pixel ghost sprites, on one of these backgrounds. */
+export const AVATAR_COLOURS = ['mint', 'pumpkin', 'violet', 'bone', 'blood', 'moss', 'midnight'] as const;
+export const Avatar = z.object({
+  ghost: z.number().int().min(0).max(4),
+  colour: z.enum(AVATAR_COLOURS),
+});
+export type Avatar = z.infer<typeof Avatar>;
+
+/** Preferences that follow a person across their devices. Everything else stays per device. */
+export const Prefs = z.object({
+  diets: z.array(z.string().regex(/^[a-z-]{2,20}$/)).max(12),
+  displayCurrency: z.string().regex(/^[A-Z]{3}$/),
+  defaultCurrency: z.string().regex(/^[A-Z]{3}$/),
+  largeText: z.boolean(),
+  soundEffects: z.boolean(),
+  reduceMotion: z.boolean(),
+}).partial();
+export type Prefs = z.infer<typeof Prefs>;
+
+export const ProfileUpdate = z.object({
+  displayName: z.string().trim().min(1).max(40),
+  avatar: Avatar,
+  prefs: Prefs,
+}).partial();
+export type ProfileUpdate = z.infer<typeof ProfileUpdate>;

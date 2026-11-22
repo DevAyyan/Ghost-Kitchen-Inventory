@@ -3,7 +3,6 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Text } from '@/components/ui/text';
-import { buttonVariants } from '@/components/ui/button';
 import * as React from 'react';
 
 interface ConfirmDialogProps {
@@ -36,7 +35,7 @@ export function ConfirmDialog({
           <AlertDialogCancel onPress={onCancel}>
             <Text>{cancelLabel}</Text>
           </AlertDialogCancel>
-          <AlertDialogAction onPress={onConfirm} className={destructive ? buttonVariants({ variant: 'destructive' }) : undefined}>
+          <AlertDialogAction onPress={onConfirm} variant={destructive ? 'destructive' : 'default'}>
             <Text className={destructive ? 'text-white' : undefined}>{confirmLabel}</Text>
           </AlertDialogAction>
         </AlertDialogFooter>

@@ -3,13 +3,37 @@ import { cn } from '@/lib/utils';
 import type { LucideIcon, LucideProps } from 'lucide-react-native';
 import { cssInterop } from 'nativewind';
 import * as React from 'react';
-import { Platform } from 'react-native';
+import { Platform, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
+import { PIXEL_ICONS } from './pixel-icons';
 
 type IconProps = LucideProps & {
   as: LucideIcon;
 } & React.RefAttributes<LucideIcon>;
 
 function IconImpl({ as: IconComponent, ...props }: IconProps) {
+  // Pixel-art version when there is one, so the whole UI shares the kitchen's look.
+  const pixel = PIXEL_ICONS[(IconComponent as { displayName?: string }).displayName ?? ''];
+  if (pixel) {
+    const flat = StyleSheet.flatten(props.style as StyleProp<ViewStyle & { color?: string }>) ?? {};
+    const size = Number(props.size ?? flat.width ?? 14);
+    const color = (props.color as string | undefined) ?? flat.color ?? 'currentColor';
+    const { color: _c, width: _w, height: _h, ...rest } = flat;
+    return (
+      <Svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        style={rest}
+        aria-hidden={props['aria-hidden']}
+        accessibilityElementsHidden={props.accessibilityElementsHidden}
+        importantForAccessibility={props.importantForAccessibility}
+        // Crisp edges on web: the paths sit on whole grid pixels, so no anti-aliased blur at small sizes.
+        {...(Platform.OS === 'web' ? { shapeRendering: 'crispEdges' } : {})}>
+        <Path d={pixel} fill={color} />
+      </Svg>
+    );
+  }
   return <IconComponent {...props} />;
 }
 

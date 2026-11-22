@@ -90,19 +90,19 @@ export function SnapSlider({ points, value, onChange, format, label }: SnapSlide
           aria-valuenow={index}
           aria-valuetext={format(points[index] ?? 0)}
           className="web:cursor-pointer h-11 flex-1 justify-center">
-          <View className="bg-muted h-2 rounded-full">
-            <View className="bg-primary h-2 rounded-full" style={{ width: `${pct}%` }} />
+          <View className="bg-muted h-2 rounded-sm">
+            <View className="bg-primary h-2 rounded-sm" style={{ width: `${pct}%` }} />
           </View>
           {ticks && (
             <View pointerEvents="none" className="absolute inset-x-0 top-1/2 h-2 -translate-y-1/2 flex-row justify-between px-px">
               {points.map((p, i) => (
-                <View key={p} className={cn('h-2 w-0.5 rounded-full', i <= index ? 'bg-primary-foreground/40' : 'bg-muted-foreground/30')} />
+                <View key={p} className={cn('h-2 w-0.5 rounded-sm', i <= index ? 'bg-primary-foreground/40' : 'bg-muted-foreground/30')} />
               ))}
             </View>
           )}
           <View
             pointerEvents="none"
-            className="border-primary bg-background absolute h-6 w-6 rounded-full border-2"
+            className="border-primary bg-background absolute h-6 w-6 rounded-sm border-2"
             style={{ left: `${pct}%`, marginLeft: -12 }}
           />
         </View>

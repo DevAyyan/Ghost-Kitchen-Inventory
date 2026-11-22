@@ -7,11 +7,12 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Text } from '@/components/ui/text';
 import { currencyInfo } from '@/lib/currency/catalog';
-import { CATEGORIES, CATEGORY_LABEL } from '@/lib/domain/catalog';
+import { CATEGORIES, CATEGORY_LABEL, ZONES } from '@/lib/domain/catalog';
+import type { Duplicate } from '@/lib/domain/dupes';
 import { LOW_CONFIDENCE, type DraftLine, needsExpiry, parseQty, reestimate, withInfo } from '@/lib/domain/draft';
 import { UNITS, UNIT_LABEL, isUnit } from '@/lib/domain/units';
-import { EXPIRY_SOURCE_LABEL } from '@/lib/domain/expiry';
-import type { IsoDate } from '@/lib/domain/types';
+import { EXPIRY_SOURCE_LABEL, homeZone, storableZones } from '@/lib/domain/expiry';
+import type { IsoDate, Zone } from '@/lib/domain/types';
 import { captureFoodPhoto } from '@/lib/photos';
 import { useLessons } from '@/lib/hooks';
 import { lookupProducts } from '@/lib/products';
@@ -24,8 +25,8 @@ import { Pressable, View } from 'react-native';
 
 /** One editable receipt line: photo, name, qty, price, category and its expiry date to confirm. */
 export const ReviewLine = React.memo(function ReviewLine({
-  line, currency, purchased,
-}: { line: DraftLine; currency: string; purchased: IsoDate }) {
+  line, currency, purchased, duplicate,
+}: { line: DraftLine; currency: string; purchased: IsoDate; duplicate?: Duplicate }) {
   const patch = useScan((s) => s.patchLine);
   const remove = useScan((s) => s.removeLine);
   const low = !line.manual && line.confidence < LOW_CONFIDENCE;
@@ -44,8 +45,19 @@ export const ReviewLine = React.memo(function ReviewLine({
     if (!current || current.name.trim() !== name) return; // edited again meanwhile
     patch(line.id, withInfo(current, info.get(name) ?? null, purchased, lessons));
   };
+  const zones = storableZones(line.category, line.info);
   const onCategory = (category: DraftLine['category']) => {
-    patch(line.id, { category, ...reestimate({ ...line, category }, purchased, lessons) });
+    // A new type can rule out the chosen section (meat can't go in the pantry): fall back to its usual one.
+    const zone = storableZones(category, line.info).includes(line.zone) ? line.zone : homeZone(category, line.info);
+    const next = { ...line, category, zone };
+    patch(line.id, { category, zone, ...reestimate(next, purchased, lessons) });
+  };
+  const onZone = (zone: Zone) => {
+    // The estimate follows the section (frozen keeps far longer). A date the user typed or read off the
+    // pack stays, but an estimate they only accepted is redone and has to be confirmed again.
+    const typed = line.expirySource === 'user' || line.expirySource === 'package';
+    const next = { ...line, zone, expiryConfirmed: typed ? line.expiryConfirmed : false };
+    patch(line.id, { zone, expiryConfirmed: next.expiryConfirmed, ...reestimate(next, purchased, lessons) });
   };
   const takePhoto = async () => {
     const res = await captureFoodPhoto('camera');
@@ -72,7 +84,7 @@ export const ReviewLine = React.memo(function ReviewLine({
             className="relative">
             <FoodPhoto photoUri={line.photoUri} category={line.category} name={line.name} size="sm" className="h-11 w-11" />
             {!line.photoUri && (
-              <View className="bg-primary absolute -bottom-1 -right-1 h-5 w-5 items-center justify-center rounded-full">
+              <View className="bg-primary absolute -bottom-1 -right-1 h-5 w-5 items-center justify-center rounded-sm">
                 <Icon as={Camera} size={11} className="text-primary-foreground" />
               </View>
             )}
@@ -80,6 +92,11 @@ export const ReviewLine = React.memo(function ReviewLine({
         )}
         <View className="min-w-40 flex-[2] gap-1">
           <Input value={line.name} onChangeText={onName} onEndEditing={() => void lookUp()} onBlur={() => void lookUp()} placeholder="Item name" accessibilityLabel="Item name" className="h-11" />
+          {duplicate && (
+            <Text className="text-warning text-xs" accessibilityRole="alert">
+              You already have {duplicate.name} in the {ZONES[duplicate.zone].label.toLowerCase()} ({duplicate.remaining}). Use that first, or keep both.
+            </Text>
+          )}
           {(line.raw || line.nonFood) && (
             <Text className="text-muted-foreground font-mono text-xs" numberOfLines={1}>
               {line.raw ? `“${line.raw}”` : ''}{line.nonFood ? ' · non-food, not stocked' : ''}
@@ -141,6 +158,20 @@ export const ReviewLine = React.memo(function ReviewLine({
             ))}
           </SelectContent>
         </Select>
+        {!line.nonFood && (
+          <Select
+            value={{ value: line.zone, label: ZONES[line.zone].label }}
+            onValueChange={(o) => o && zones.includes(o.value as Zone) && onZone(o.value as Zone)}>
+            <SelectTrigger className="h-11 w-32" accessibilityLabel={`Where to store ${name}`}>
+              <SelectValue placeholder="Store in" />
+            </SelectTrigger>
+            <SelectContent className="w-36">
+              {zones.map((z) => (
+                <SelectItem key={z} value={z} label={ZONES[z].label} />
+              ))}
+            </SelectContent>
+          </Select>
+        )}
         {/* A typed row has no reading confidence; the empty slot keeps columns lined up on wide screens. */}
         {line.manual ? (
           <View aria-hidden className="w-12" />

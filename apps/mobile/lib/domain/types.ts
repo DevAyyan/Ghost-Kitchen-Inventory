@@ -94,6 +94,11 @@ export interface ItemEvent {
   wentOff?: boolean;
   /** A use that finished the item: a candidate for the shopping list. */
   finished?: boolean;
+  /**
+   * Who did it: the signed-in person's id. The server sets it for shared households, so it can't be faked.
+   * Missing on history from before accounts.
+   */
+  by?: string;
 }
 
 /** One line on the shared shopping list. */

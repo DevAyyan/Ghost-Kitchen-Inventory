@@ -1,3 +1,6 @@
+import { canOffer, offerText } from '@/lib/domain/surplus';
+import { shareText } from '@/lib/share';
+import { useRouter } from 'expo-router';
 import { ExpiryField } from '@/components/food/expiry-field';
 import { FoodPhoto } from '@/components/food/food-photo';
 import { PhotoButtons } from '@/components/food/photo-buttons';
@@ -22,7 +25,9 @@ import { EXPIRY_SOURCE_LABEL, MAX_SNIFFS, SNIFF_DAYS, daysLeft, isCookable, rema
 import type { Category, Item } from '@/lib/domain/types';
 import { useApp } from '@/lib/store/app-store';
 import { toast } from '@/lib/store/toast';
-import { ListPlus, ShieldAlert, ShieldCheck, Trash2 } from 'lucide-react-native';
+import { HandHeart, ListPlus, ShieldAlert, ShieldCheck, Trash2 } from 'lucide-react-native';
+import { today } from '@/lib/domain/dates';
+import { sfx } from '@/lib/feedback';
 import * as React from 'react';
 import { View } from 'react-native';
 
@@ -31,6 +36,13 @@ import { View } from 'react-native';
  * `showName`: off inside a sheet, whose title already names the item.
  */
 export function ItemDetails({ item, onDone, showName = true }: { item: Item; onDone: () => void; showName?: boolean }) {
+  const router = useRouter();
+  /** A message offering low-risk food to neighbours or a community fridge, via the share sheet. */
+  const offer = async () => {
+    const res = await shareText(`Free: ${item.name}`, offerText(item, today()));
+    if (res === 'copied') toast('Offer copied. Paste it in your neighbourhood group.');
+    else if (res === 'failed') toast("Couldn't share right now. Try again.");
+  };
   const discardItem = useApp((s) => s.discardItem);
   const setExpiry = useApp((s) => s.setExpiry);
   const confirmExpiry = useApp((s) => s.confirmExpiry);
@@ -50,7 +62,13 @@ export function ItemDetails({ item, onDone, showName = true }: { item: Item; onD
 
   const discard = (wentOff = false) => {
     const res = discardItem(item.id, { wentOff });
-    if (res) toast(`${item.name} buried · ${formatMoney(res.value, res.currency)} lost${wentOff ? '. Future dates for it will be more careful.' : ''}`);
+    if (res) sfx('bury');
+    if (res) {
+      toast(`${item.name} buried · ${formatMoney(res.value, res.currency)} lost${wentOff ? '. Future dates for it will be more careful.' : ''}`, {
+        label: 'Add to list',
+        onPress: () => toast(addShopping(item.name, { source: 'used-up' }) ? `${item.name} added to the shopping list` : `${item.name} is already on the shopping list`),
+      });
+    }
     onDone();
   };
   const passCheck = () => {
@@ -169,9 +187,16 @@ export function ItemDetails({ item, onDone, showName = true }: { item: Item; onD
           <Icon as={ListPlus} size={16} />
           <Text>Add to shopping list</Text>
         </Button>
+        {canOffer(item, today()) && (
+          <Button variant="ghost" className="h-11" onPress={() => void offer()} accessibilityHint="Shares a message offering this food to neighbours or a community fridge">
+            <Icon as={HandHeart} size={16} />
+            <Text>Offer it to someone</Text>
+          </Button>
+        )}
       </View>
       <Text className="text-muted-foreground text-xs">
-        Freshness follows the expiry date. Always check the package and the food itself. Food-safety tips are guidance, not a guarantee.
+        Freshness follows the expiry date. Always check the package and the food itself. Food-safety tips are guidance, not a guarantee.{' '}
+        <Text accessibilityRole="link" onPress={() => router.push('/trust')} className="text-primary text-xs underline">How dates are decided</Text>
       </Text>
     </View>
   );

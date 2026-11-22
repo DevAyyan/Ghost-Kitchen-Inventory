@@ -14,14 +14,22 @@ import { Text } from '@/components/ui/text';
 import { apiBase } from '@/lib/api';
 import { HouseholdSection } from '@/components/settings/household-section';
 import { Row, Section, StatusLine, ToggleRow } from '@/components/settings/parts';
+import { BudgetSection } from '@/components/settings/budget-section';
 import { ReminderSection } from '@/components/settings/reminder-section';
 import { ServerSection } from '@/components/settings/server-section';
 import { useHousehold } from '@/lib/store/household-store';
-import { leaveHousehold } from '@/lib/sync';
+import { useAuthStore } from '@/lib/store/auth-store';
+import { GhostAvatar } from '@/components/profile/ghost-avatar';
+import { useRouter } from 'expo-router';
+import { clearAllDataLocally, leaveHousehold } from '@/lib/sync';
+import { deleteAllPlan } from '@/lib/domain/account-link';
+import { buildExport, exportFileName } from '@/lib/domain/export';
+import { today } from '@/lib/domain/dates';
+import { deliverExport } from '@/lib/export-file';
 import { notificationsSupported, requestNotificationPermission } from '@/lib/notifications';
-import { deviceLocaleTag } from '@/lib/locale';
 import { clearProductCache } from '@/lib/products';
 import { useApp } from '@/lib/store/app-store';
+import { useTour } from '@/lib/store/tour-store';
 import { type Settings, useSettings } from '@/lib/store/settings-store';
 import { useServer } from '@/lib/store/server-store';
 import { toast } from '@/lib/store/toast';
@@ -38,13 +46,54 @@ export default function SettingsScreen() {
   const update = useSettings((st) => st.update);
   const loadSampleData = useApp((st) => st.loadSampleData);
   const clearAllData = useApp((st) => st.clearAllData);
+  const startTour = () => {
+    update({ demoMode: true });
+    if (itemCount === 0) loadSampleData();
+    useTour.getState().start();
+    router.navigate('/');
+  };
+  const exportData = async () => {
+    const a = useApp.getState();
+    const json = buildExport({
+      items: a.items, receipts: a.receipts, events: a.events, shopping: a.shopping, plan: a.plan,
+      settings: s as unknown as Record<string, unknown>, exportedAt: new Date().toISOString(), appVersion: Constants.expoConfig?.version ?? '',
+    });
+    const ok = await deliverExport(json, exportFileName(today()));
+    toast(ok ? 'Your data is ready' : "Couldn't export your data. Try again.");
+  };
   const itemCount = useApp((st) => st.items.filter((i) => i.status === 'active').length);
   const [picker, setPicker] = React.useState<PickerTarget>(null);
   const [confirm, setConfirm] = React.useState<Confirm>(null);
   const household = useHousehold((st) => st.household);
+  const me = useAuthStore((st) => st.me);
+  const router = useRouter();
 
   return (
     <Screen title="Settings">
+      {me && (
+        <Section title="Account">
+          <View className="flex-row flex-wrap items-center gap-3">
+            <GhostAvatar avatar={me.avatar} size={44} />
+            <View className="min-w-40 flex-1">
+              <Text className="font-semibold">{me.displayName}</Text>
+              {me.email ? <Text className="text-muted-foreground text-sm">{me.email}</Text> : null}
+            </View>
+            <Button variant="outline" className="h-11" onPress={() => router.navigate('/profile')}><Text>Profile and badges</Text></Button>
+          </View>
+          <Text className="text-muted-foreground mt-2 text-xs">Diets, currencies, larger text, sounds and reduced motion follow you to every device you sign in on.</Text>
+        </Section>
+      )}
+      <Section title="Demo mode">
+        <ToggleRow
+          k="demoMode"
+          title="Use recorded sample answers"
+          sub="For showing the app with no server or internet. Scanning, shelf-life lookups, recipes and exchange rates answer from data stored in the app, and nothing is sent anywhere. Scan the sample receipt from the Scan tab. Households and accounts need your server. Food you add stays in your fridge like any other; delete it under Data."
+        />
+        <Separator className="my-2" />
+        <Row title="Guided tour" sub={itemCount === 0 ? 'Eight short stops through the app. Turns demo mode on and adds the sample fridge.' : 'Eight short stops through the app. Turns demo mode on; your food stays as it is.'}>
+          <Button variant="outline" className="h-11" onPress={startTour}><Text>Take the tour</Text></Button>
+        </Row>
+      </Section>
       <ServerSection />
       <HouseholdSection />
 
@@ -52,7 +101,7 @@ export default function SettingsScreen() {
         <Text className="text-muted-foreground mb-2 text-sm">
           Every item keeps the currency it was bought in, so changing these never rewrites prices you already have.
         </Text>
-        <Row title="Default currency" sub={`For new items: receipts with no clear currency, and items you add by hand. Set from your device (${deviceLocaleTag()}).`}>
+        <Row title="Default currency" sub={`For new items: receipts with no clear currency, and items you add by hand. US dollars unless you change it.`}>
           <CurrencyChip code={s.defaultCurrency} showName={false} onPress={() => setPicker('defaultCurrency')} prefix="Default" />
         </Row>
         <Separator />
@@ -60,6 +109,8 @@ export default function SettingsScreen() {
           <CurrencyChip code={s.displayCurrency} showName={false} onPress={() => setPicker('displayCurrency')} prefix="Display" />
         </Row>
       </Section>
+
+      <BudgetSection />
 
       <Section title="Diet">
         <Text className="text-muted-foreground mb-2 text-sm">Recipes only use ingredients that fit every diet you pick. Ingredients are checked by Gemini; anything that can't be checked is left out.</Text>
@@ -76,13 +127,15 @@ export default function SettingsScreen() {
           sub="Identifies receipt items, estimates shelf life and checks diets. When off, receipts are read with basic rules and dates are rough estimates."
         />
         <Text className="text-muted-foreground mt-2 text-xs">
+          <Text accessibilityRole="link" onPress={() => router.push('/trust')} className="text-primary text-xs underline">How dates are decided and what keeps them safe</Text>{'. '}
           Your server sends receipt text and product names to Google Gemini, never your account details. Photos of single items are the one exception: you choose to send those, and they go to Gemini as images. On Gemini's free tier, Google may use submitted content to improve its products. Recipes come from TheMealDB.
         </Text>
       </Section>
 
-      <Section title="Sound and motion">
+      <Section title="Sound, motion and text">
         <ToggleRow k="soundEffects" title="Sounds and vibration" sub="A short sound and a light tap when you open or close the freezer, fridge or pantry doors." />
         <ToggleRow k="reduceMotion" title="Reduce motion" sub="Stills the glow, flies, ghosts, flickering fridge light, door swings and graveyard fog. Your system setting is also respected." />
+        <ToggleRow k="largeText" title="Larger text" sub="Every piece of text a step bigger, for the small pixel font." />
       </Section>
 
       <Section title="Data">
@@ -90,6 +143,7 @@ export default function SettingsScreen() {
           {household ? `Your fridge is stored on this device and shared with ${household.name}.` : 'Your fridge is stored on this device.'} {itemCount} item{itemCount === 1 ? '' : 's'} right now.
         </Text>
         <View className="flex-row flex-wrap gap-2">
+          <Button variant="outline" className="h-11" onPress={() => void exportData()}><Text>Export my data</Text></Button>
           <Button variant="outline" className="h-11" onPress={() => setConfirm('sample')}><Text>Load sample data</Text></Button>
           <Button variant="outline" className="h-11" onPress={() => { clearProductCache(); toast('Saved shelf-life lookups cleared'); }}><Text>Clear saved lookups</Text></Button>
           <Button variant="destructive" className="h-11" onPress={() => setConfirm('clear')}><Text className="text-white">Delete all data</Text></Button>
@@ -118,17 +172,33 @@ export default function SettingsScreen() {
         open={confirm === 'clear'}
         onOpenChange={(o) => !o && setConfirm(null)}
         title="Delete all data?"
-        description={household
-          ? `This device leaves ${household.name} first, so nothing is deleted for the others. Then every item, receipt, photo and history entry on this device is deleted. Settings are kept. This can't be undone.`
-          : "Deletes every item, receipt, photo and history entry on this device. Settings are kept. This can't be undone."}
+        description={me && household
+          ? deleteAllPlan(household.members) === 'leave-then-clear'
+            ? `Your account leaves ${household.name} first, so the others keep their food. Then every item, receipt, photo and history entry is deleted on all your devices. Settings are kept. This can't be undone.`
+            : "Deletes every item, receipt, photo and history entry on all the devices you're signed in on. Settings are kept. This can't be undone."
+          : household
+            ? `This device leaves ${household.name} first, so nothing is deleted for the others. Then every item, receipt, photo and history entry on this device is deleted. Settings are kept. This can't be undone.`
+            : "Deletes every item, receipt, photo and history entry on this device. Settings are kept. This can't be undone."}
         confirmLabel="Delete everything"
         destructive
         onConfirm={() => {
-          // Leave before clearing, or the deletions would sync to everyone.
           void (async () => {
-            if (useHousehold.getState().household) await leaveHousehold();
-            clearAllData();
-            toast('All data deleted');
+            const hh = useHousehold.getState().household;
+            if (me && hh && deleteAllPlan(hh.members) === 'clear-everywhere') {
+              // Only you in your kitchen: the deletions sync, so every device you're signed in on empties.
+              clearAllData();
+              toast('All data deleted on all your devices');
+              return;
+            }
+            // Shared, or signed out: leave first, or the deletions would reach everyone else.
+            // Signed in, leaving moves the account to a fresh kitchen; clearing first means it starts empty.
+            if (hh) {
+              clearAllDataLocally();
+              await leaveHousehold();
+            } else {
+              clearAllData();
+            }
+            toast(me ? 'All data deleted on all your devices' : 'All data deleted');
           })();
         }}
       />

@@ -8,9 +8,11 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { formatMoney } from '@/lib/currency/money';
 import { today } from '@/lib/domain/dates';
-import { CURRENCY_CHECK_THRESHOLD, blankLine, draftTotals, manualDraft, needsExpiry, validateDraft } from '@/lib/domain/draft';
+import { CURRENCY_CHECK_THRESHOLD, rowNeedsCheck, sectionCounts, blankLine, draftTotals, manualDraft, needsExpiry, validateDraft } from '@/lib/domain/draft';
 import { shortDate } from '@/lib/domain/dates';
+import { findDuplicates } from '@/lib/domain/dupes';
 import { daysLeft } from '@/lib/domain/expiry';
+import { ZONES, ZONE_ORDER } from '@/lib/domain/catalog';
 import { ConfirmDialog } from '@/components/common/confirm-dialog';
 import { useApp } from '@/lib/store/app-store';
 import { useSettings } from '@/lib/store/settings-store';
@@ -31,7 +33,12 @@ export default function ReviewScreen() {
   const commitDraft = useApp((s) => s.commitDraft);
   const [pickerOpen, setPickerOpen] = React.useState(false);
   const [confirmAllOpen, setConfirmAllOpen] = React.useState(false);
+  // The rows to check, fixed when the filter is turned on, so a row doesn't vanish while you edit it.
+  const [checkIds, setCheckIds] = React.useState<Set<string> | null>(null);
+  const onlyCheck = checkIds !== null;
   const patchLine = useScan((s) => s.patchLine);
+  const stocked = useApp((s) => s.items);
+  const duplicates = React.useMemo(() => (draft ? findDuplicates(draft.lines, stocked) : new Map()), [draft, stocked]);
 
   React.useEffect(() => {
     // Scan screen sets the draft before navigating here; manual entry starts a blank one.
@@ -140,8 +147,24 @@ export default function ReviewScreen() {
           </Alert>
         )}
 
+        {draft.lines.length > 3 && (() => {
+          const counts = sectionCounts(draft.lines);
+          const toCheck = draft.lines.filter((l) => rowNeedsCheck(l, { duplicate: duplicates.has(l.id), now: today() })).length;
+          return (
+            <View className="flex-row flex-wrap items-center gap-2">
+              <Text className="text-muted-foreground flex-1 text-sm">
+                {ZONE_ORDER.filter((z) => counts[z] > 0).map((z) => `${ZONES[z].label} ${counts[z]}`).join(' · ') || 'Nothing to stock yet'}
+              </Text>
+              {(toCheck > 0 || onlyCheck) && (
+                <Button variant={onlyCheck ? 'default' : 'outline'} className="h-11" onPress={() => setCheckIds(onlyCheck ? null : new Set(draft.lines.filter((l) => rowNeedsCheck(l, { duplicate: duplicates.has(l.id), now: today() })).map((l) => l.id)))} accessibilityState={{ selected: onlyCheck }}>
+                  <Text>{onlyCheck ? 'Show all rows' : `Only the ${toCheck} to check`}</Text>
+                </Button>
+              )}
+            </View>
+          );
+        })()}
         <View role="list" aria-label="Receipt items" className="border-border overflow-hidden rounded-lg border">
-          {draft.lines.map((l) => <ReviewLine key={l.id} line={l} currency={draft.currency} purchased={draft.date} />)}
+          {draft.lines.filter((l) => !checkIds || checkIds.has(l.id)).map((l) => <ReviewLine key={l.id} line={l} currency={draft.currency} purchased={draft.date} duplicate={duplicates.get(l.id)} />)}
         </View>
         <Button variant="outline" className="h-11 self-start" onPress={() => addLine(blankLine(draft.date))}>
           <Icon as={Plus} size={16} />

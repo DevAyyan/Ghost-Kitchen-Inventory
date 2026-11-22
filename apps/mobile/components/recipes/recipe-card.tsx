@@ -1,3 +1,4 @@
+import { StepIn } from '@/components/common/pixel-motion';
 import { FoodPhoto } from '@/components/food/food-photo';
 import { STAGE_STYLE } from '@/components/stage/stage-style';
 import { Button } from '@/components/ui/button';
@@ -8,6 +9,7 @@ import { Text } from '@/components/ui/text';
 import type { RemoteRecipe } from '@/lib/api';
 import { stageOf } from '@/lib/domain/expiry';
 import type { Item } from '@/lib/domain/types';
+import { useLayout } from '@/lib/hooks';
 import { cn } from '@/lib/utils';
 import { CalendarPlus, Check, ChefHat, ChevronDown, ChevronUp, ExternalLink, Globe, ShoppingBasket } from 'lucide-react-native';
 import * as React from 'react';
@@ -23,15 +25,20 @@ interface RecipeCardProps {
   defaultOpen: boolean;
 }
 
-export function RecipeCard({ recipe, items, saves, onCook, onPlan, defaultOpen }: RecipeCardProps) {
+export function RecipeCard({ recipe, items, saves, onCook, onPlan, defaultOpen, index = 0 }: RecipeCardProps & { index?: number }) {
   const [open, setOpen] = React.useState(defaultOpen);
+  const { isPhone } = useLayout();
   const rescued = recipe.rescuesItemIds.map((id) => items.get(id)).filter((i): i is Item => !!i);
   const origin = [recipe.area, recipe.category].filter(Boolean).join(' · ');
 
   return (
-    <Card className="min-w-72 flex-1 gap-4 overflow-hidden pb-4 pt-0">
+    // flex-1 only side by side: in a phone's column, Android gives a flex-1 card zero height to start
+    // from, and overflow-hidden then cuts off the photo and the steps. The step-in carries the sizing,
+    // so the card inside it is simply full width. `index` deals a list of cards in one by one.
+    <StepIn index={index} className={isPhone ? 'w-full' : 'min-w-72 flex-1'}>
+    <Card className="w-full gap-4 overflow-hidden pb-4 pt-0">
       {recipe.thumb ? (
-        <Image source={{ uri: recipe.thumb }} accessibilityIgnoresInvertColors alt="" aria-hidden className="bg-muted aspect-video w-full" resizeMode="cover" />
+        <Image source={{ uri: recipe.thumb }} accessibilityIgnoresInvertColors alt="" aria-hidden className="bg-muted w-full" style={{ aspectRatio: 16 / 9 }} resizeMode="cover" />
       ) : (
         <View className="bg-muted aspect-video w-full items-center justify-center"><Icon as={ChefHat} size={32} className="text-muted-foreground" /></View>
       )}
@@ -49,7 +56,7 @@ export function RecipeCard({ recipe, items, saves, onCook, onPlan, defaultOpen }
           {rescued.map((i) => {
             const s = STAGE_STYLE[stageOf(i)];
             return (
-              <View key={i.id} accessibilityLabel={`${i.name}, ${s.label}`} className={cn('flex-row items-center gap-1 rounded-full border px-2 py-0.5', s.border)}>
+              <View key={i.id} accessibilityLabel={`${i.name}, ${s.label}`} className={cn('flex-row items-center gap-1 rounded-sm border px-2 py-0.5', s.border)}>
                 <FoodPhoto photoUri={i.photoUri} category={i.category} name={i.name} size="xs" />
                 <Text className="text-xs">{i.name}</Text>
                 <Icon as={s.icon} size={11} className={s.text} />
@@ -115,6 +122,7 @@ export function RecipeCard({ recipe, items, saves, onCook, onPlan, defaultOpen }
         </View>
       </CardFooter>
     </Card>
+    </StepIn>
   );
 }
 
@@ -128,8 +136,9 @@ function Meta({ icon, text }: { icon: typeof Globe; text: string }) {
 }
 
 export function RecipeCardSkeleton() {
+  const { isPhone } = useLayout();
   return (
-    <Card className="min-w-72 flex-1 gap-3 overflow-hidden pt-0">
+    <Card className={cn('gap-3 overflow-hidden pt-0', isPhone ? 'w-full' : 'min-w-72 flex-1')}>
       <Skeleton className="aspect-video w-full rounded-none" />
       <View className="gap-3 px-4">
         <Skeleton className="h-5 w-3/4" />

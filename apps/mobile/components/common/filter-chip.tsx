@@ -23,9 +23,10 @@ export function FilterChip({ pressed, onPress, accessibilityLabel, children, cla
       aria-pressed={pressed}
       accessibilityLabel={accessibilityLabel}
       className={cn(
-        'border-input web:hover:bg-accent active:bg-accent h-11 flex-row items-center gap-1.5 rounded-full border px-3 sm:h-9',
+        'border-input web:hover:bg-accent active:bg-accent h-11 flex-row items-center gap-1.5 border-2 border-b-4 px-3 active:translate-y-0.5 active:border-b-2 sm:h-9',
         'web:focus-visible:ring-2 web:focus-visible:ring-ring web:outline-none',
-        pressed && 'border-primary bg-primary/10',
+        // A chip that's on stays pressed in.
+        pressed && 'border-primary bg-primary/10 translate-y-0.5 border-b-2',
         className
       )}>
       {children}

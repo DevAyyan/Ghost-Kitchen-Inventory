@@ -80,3 +80,22 @@ describe('POST /v1/tonight', () => {
     expect(templateTonight({ items: [{ name: 'Milk', daysLeft: 0, highRisk: false }], diets: [], useAi: true }).title).toBe('Cook with Milk');
   });
 });
+
+describe('POST /v1/voice/parse', () => {
+  const items = [{ id: 'm', name: 'Milk', unit: 'l', left: 1 }, { id: 's', name: 'Spinach', unit: 'g', left: 200 }];
+
+  it('keeps only listed ids, once each, and caps amounts at what is left', async () => {
+    const a = await make(() => ({ actions: [
+      { itemId: 'm', kind: 'used', amount: 5 }, { itemId: 'm', kind: 'binned', amount: null },
+      { itemId: 'ghost', kind: 'used', amount: 1 }, { itemId: 's', kind: 'binned', amount: null },
+    ] }));
+    const res = await a.inject({ method: 'POST', url: '/v1/voice/parse', payload: { text: 'had loads of milk and the greens were slimy', items } });
+    expect(res.json()).toEqual({ source: 'gemini', actions: [{ itemId: 'm', kind: 'used', amount: 1 }, { itemId: 's', kind: 'binned', amount: null }] });
+  });
+
+  it('answers with nothing when AI is off, and validates input', async () => {
+    const off = await make(() => ({}), false);
+    expect((await off.inject({ method: 'POST', url: '/v1/voice/parse', payload: { text: 'milk', items } })).json()).toEqual({ actions: [], source: 'none' });
+    expect((await off.inject({ method: 'POST', url: '/v1/voice/parse', payload: { text: '', items } })).statusCode).toBe(400);
+  });
+});

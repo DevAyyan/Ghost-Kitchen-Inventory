@@ -22,6 +22,9 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="color-scheme" content="dark" />
         <style dangerouslySetInnerHTML={{ __html: ':root{color-scheme:dark;background-color:#120e15}*{scrollbar-color:#332c3b transparent;scrollbar-width:thin}::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#332c3b;border-radius:8px}' }} />
         <meta name="theme-color" content="#120e15" />
+        {/* Installable from the browser ("Add to home screen" / "Install app"). */}
+        <link rel="manifest" href="/manifest.webmanifest" />
+        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
 
         {/* Add any additional <head> elements that you want globally available on web... */}
       </head>

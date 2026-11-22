@@ -71,14 +71,56 @@ export const hasActivity = (w: WeekSummary) => w.spent.length > 0 || w.rescuedCo
 export function weekMessage(w: WeekSummary, fmt: (m: Money[]) => string): { title: string; body: string } {
   const range = `${shortDate(w.start)} – ${shortDate(w.end)}`;
   const parts: string[] = [];
-  if (w.rescuedCount) parts.push(`You rescued ${fmt(w.rescued)} of food`);
-  if (w.wastedCount) parts.push(`${w.rescuedCount ? 'and' : 'You'} threw out ${fmt(w.wasted)} (${w.wastedCount} item${w.wastedCount === 1 ? '' : 's'})`);
-  if (!parts.length) parts.push('Nothing rescued or thrown out');
+  if (w.rescuedCount) parts.push(`You saved ${fmt(w.rescued)} of food from the graveyard`);
+  if (w.wastedCount) parts.push(`${w.rescuedCount ? 'and' : 'You'} buried ${fmt(w.wasted)} (${w.wastedCount} item${w.wastedCount === 1 ? '' : 's'})`);
+  if (!parts.length) parts.push('A quiet week: nothing saved or buried');
   let trend = '';
   if (w.previous.wastedCount > 0 || w.wastedCount > 0) {
     if (w.wastedCount < w.previous.wastedCount) trend = ' Less waste than the week before.';
     else if (w.wastedCount > w.previous.wastedCount) trend = ' More waste than the week before.';
   }
   const worst = w.topWasted[0] && w.topWasted[0].count > 1 ? ` Most binned: ${w.topWasted[0].name}.` : '';
-  return { title: `Your week in food (${range})`, body: `${parts.join(' ')}.${trend}${worst}` };
+  return { title: `Your week in the haunted kitchen (${range})`, body: `${parts.join(' ')}.${trend}${worst}` };
+}
+
+/**
+ * A short, shareable "ghost story" of the week. Only counts and money the user chose to share; no item
+ * photos, no household names. Says nothing about whether food past its date was safe.
+ */
+export function weekStory(w: WeekSummary, fmt: (m: Money[]) => string, extra?: { co2SavedKg?: number }): string {
+  const lines: string[] = [`👻 A week in my haunted kitchen (${shortDate(w.start)} – ${shortDate(w.end)})`];
+  if (w.rescuedCount) {
+    lines.push(`I banished ${w.rescuedCount} ghost${w.rescuedCount === 1 ? '' : 's'}: ${fmt(w.rescued)} of food eaten before it could turn.`);
+  }
+  if (extra?.co2SavedKg && extra.co2SavedKg >= 0.1) {
+    lines.push(`That kept about ${extra.co2SavedKg < 1 ? `${Math.round(extra.co2SavedKg * 1000)} g` : `${extra.co2SavedKg.toFixed(1)} kg`} of CO₂e out of the bin.`);
+  }
+  if (w.wastedCount) {
+    const worst = w.topWasted[0]?.name;
+    lines.push(`${w.wastedCount} went to the graveyard (${fmt(w.wasted)})${worst ? `, ${worst} among them` : ''}.`);
+  } else if (w.rescuedCount) {
+    lines.push('The graveyard stayed empty. 🪦');
+  }
+  if (!w.rescuedCount && !w.wastedCount) lines.push('A quiet week. Nothing rose, nothing was buried.');
+  if (w.wastedCount < w.previous.wastedCount) lines.push(`Fewer burials than the week before (${w.wastedCount} vs ${w.previous.wastedCount}).`);
+  lines.push('Tracked with Ghost Kitchen.');
+  return lines.join('\n');
+}
+
+export interface BoardRow { by: string; rescued: number; buried: number }
+
+/**
+ * Who rescued the most food this week, for a household. Ranked by rescues only: burying spoiled food is
+ * the right call, so it's shown but never counts against anyone. Entries without a person are left out.
+ */
+export function householdBoard(events: ItemEvent[], start: IsoDate): BoardRow[] {
+  const rows = new Map<string, BoardRow>();
+  for (const e of events) {
+    if (!e.by || !within(e.date, start)) continue;
+    const r = rows.get(e.by) ?? { by: e.by, rescued: 0, buried: 0 };
+    if (e.type === 'used' && e.stage !== 'fresh') r.rescued++;
+    if (e.type === 'discarded') r.buried++;
+    rows.set(e.by, r);
+  }
+  return [...rows.values()].filter((r) => r.rescued + r.buried > 0).sort((a, b) => b.rescued - a.rescued || a.by.localeCompare(b.by));
 }

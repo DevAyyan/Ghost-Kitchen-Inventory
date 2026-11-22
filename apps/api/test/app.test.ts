@@ -113,6 +113,17 @@ describe('API', () => {
     expect((await a.inject('/v1/nope')).json().error.code).toBe('not_found');
   });
 
+  it('never rate limits the web app\'s own files, only the API', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'gkweb-'));
+    writeFileSync(join(dir, 'index.html'), '<p>home</p>');
+    writeFileSync(join(dir, '+not-found.html'), '<p>missing</p>');
+    const a = await make({ WEB_DIR: dir, RATE_LIMIT_PER_MIN: '3' });
+    for (let i = 0; i < 10; i++) expect((await a.inject('/')).statusCode).toBe(200);
+    const codes = [];
+    for (let i = 0; i < 5; i++) codes.push((await a.inject('/v1/status')).statusCode);
+    expect(codes).toContain(429);
+  });
+
   it('rate limits the expensive endpoint', async () => {
     const a = await make();
     const { payload, headers } = multipart({}, { name: 'r.jpg', data: JPEG });

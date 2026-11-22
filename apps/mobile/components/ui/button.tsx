@@ -3,6 +3,8 @@ import { cn } from '@/lib/utils';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { Platform, Pressable } from 'react-native';
 
+// Pressed: the face sinks 2 px into its thick bottom edge (a translate, so nothing around the button moves)
+// and the colour steps darker, like a game button.
 const buttonVariants = cva(
   cn(
     'group shrink-0 flex-row items-center justify-center gap-2 rounded-md shadow-none',
@@ -14,23 +16,23 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: cn(
-          'bg-primary active:bg-primary/90 shadow-sm shadow-black/5',
+          'bg-primary active:bg-primary/75 border-b-4 border-black/40 active:translate-y-0.5 active:border-b-2',
           Platform.select({ web: 'hover:bg-primary/90' })
         ),
         destructive: cn(
-          'bg-destructive active:bg-destructive/90 dark:bg-destructive/60 shadow-sm shadow-black/5',
+          'bg-destructive active:bg-destructive/75 dark:bg-destructive/60 border-b-4 border-black/40 active:translate-y-0.5 active:border-b-2',
           Platform.select({
             web: 'hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40',
           })
         ),
         outline: cn(
-          'border-border bg-background active:bg-accent dark:bg-input/30 dark:border-input dark:active:bg-input/50 border shadow-sm shadow-black/5',
+          'border-border bg-background active:bg-accent dark:bg-input/30 dark:border-input dark:active:bg-input/50 border-2 border-b-4 active:translate-y-0.5 active:border-b-2',
           Platform.select({
             web: 'hover:bg-accent dark:hover:bg-input/50',
           })
         ),
         secondary: cn(
-          'bg-secondary active:bg-secondary/80 shadow-sm shadow-black/5',
+          'bg-secondary active:bg-secondary/70 border-b-4 border-black/40 active:translate-y-0.5 active:border-b-2',
           Platform.select({ web: 'hover:bg-secondary/80' })
         ),
         ghost: cn(

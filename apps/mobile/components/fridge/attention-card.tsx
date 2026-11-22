@@ -1,4 +1,4 @@
-import { SpiderWeb } from '@/components/halloween/lab-icons';
+import { Dust } from '@/components/halloween/lab-icons';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Separator } from '@/components/ui/separator';
@@ -58,7 +58,7 @@ export function AttentionCard({ spoiled, estimated, moves, forgotten, onBury, on
   }
   if (forgotten.length > 0) {
     rows.push({
-      key: 'forgotten', icon: SpiderWeb, iconClass: 'text-muted-foreground',
+      key: 'forgotten', icon: Dust, iconClass: 'text-muted-foreground',
       title: 'Still have these?', detail: `${names(forgotten)} · untouched for weeks`,
       action: 'Review', onPress: () => onOpen(forgotten[0]!.id),
     });

@@ -40,9 +40,15 @@ export const useHousehold = create<HouseholdState>()(
     }),
     {
       name: 'ghost-kitchen-household',
-      version: 1,
+      version: 3,
       storage: createJSONStorage(() => safeStorage('household')),
       partialize: ({ household, deviceId, cursor, pending, lastSyncAt }) => ({ household, deviceId, cursor, pending, lastSyncAt }),
+      // v2 kept a list of accounts that had left sharing on this device. Accounts now always have a
+      // kitchen, so it's dropped. Everything else (the kitchen, unsent changes) is kept as it was.
+      migrate: (persisted) => {
+        const { optedOut: _gone, ...rest } = (persisted ?? {}) as Record<string, unknown>;
+        return rest as unknown as HouseholdState;
+      },
     }
   )
 );

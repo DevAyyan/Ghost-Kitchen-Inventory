@@ -7,13 +7,14 @@ import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { today } from '@/lib/domain/dates';
-import { inStock, missingForPlan, usedUpSuggestions } from '@/lib/domain/shopping';
+import { inStock, missingForPlan, shoppingText, turningNote, usedUpSuggestions } from '@/lib/domain/shopping';
 import type { Item, ItemEvent, PlanEntry, ShoppingItem } from '@/lib/domain/types';
 import { formatQty } from '@/lib/domain/units';
+import { shareText } from '@/lib/share';
 import { useApp } from '@/lib/store/app-store';
 import { toast } from '@/lib/store/toast';
 import { cn } from '@/lib/utils';
-import { ListChecks, Plus, ShoppingBasket, Trash2 } from 'lucide-react-native';
+import { ListChecks, Plus, Share2, ShoppingBasket, Trash2 } from 'lucide-react-native';
 import * as React from 'react';
 import { Pressable, View } from 'react-native';
 
@@ -38,12 +39,18 @@ export function ShoppingCard({
     const n = name.trim();
     if (!n) return;
     if (!addShopping(n, { amount })) toast(`${n} is already on the list`);
+    else { const note = turningNote(n, items, now); if (note) toast(`Added. ${note}`); }
     setName('');
     setAmount('');
   };
   const addAllMissing = () => {
     const n = missing.filter((m) => addShopping(m.name, { amount: m.measure, source: 'plan' })).length;
     toast(`${n} item${n === 1 ? '' : 's'} added from your meal plan`);
+  };
+  const share = async () => {
+    const res = await shareText('Shopping list', shoppingText(shopping));
+    if (res === 'copied') toast('Shopping list copied. Paste it wherever you like.');
+    else if (res === 'failed') toast("Couldn't share the list here. Try again, or copy it by hand.");
   };
 
   return (
@@ -62,13 +69,22 @@ export function ShoppingCard({
           <EmptyState inCard icon={ShoppingBasket} title="Nothing to buy yet" description="Add things here, or from an item's details when you finish it." />
         ) : (
           <View role="list">
-            {[...open, ...done].map((l) => <ShoppingRow key={l.id} line={l} have={inStock(l.name, items)} onToggle={() => toggle(l.id)} onRemove={() => remove(l.id)} />)}
+            {[...open, ...done].map((l) => <ShoppingRow key={l.id} line={l} have={inStock(l.name, items)} turning={turningNote(l.name, items, now)} onToggle={() => toggle(l.id)} onRemove={() => remove(l.id)} />)}
           </View>
         )}
-        {done.length > 0 && (
-          <Button variant="ghost" className="h-11 self-start" onPress={() => { const n = clearChecked(); toast(`${n} ticked item${n === 1 ? '' : 's'} cleared`); }}>
-            <Icon as={ListChecks} size={16} /><Text>Clear ticked ({done.length})</Text>
-          </Button>
+        {(done.length > 0 || open.length > 0) && (
+          <View className="flex-row flex-wrap gap-2">
+            {open.length > 0 && (
+              <Button variant="outline" className="h-11" onPress={() => void share()}>
+                <Icon as={Share2} size={16} /><Text>Share list</Text>
+              </Button>
+            )}
+            {done.length > 0 && (
+              <Button variant="ghost" className="h-11" onPress={() => { const n = clearChecked(); toast(`${n} ticked item${n === 1 ? '' : 's'} cleared`); }}>
+                <Icon as={ListChecks} size={16} /><Text>Clear ticked ({done.length})</Text>
+              </Button>
+            )}
+          </View>
         )}
 
         {missing.length > 0 && (
@@ -98,7 +114,7 @@ export function ShoppingCard({
   );
 }
 
-function ShoppingRow({ line, have, onToggle, onRemove }: { line: ShoppingItem; have: Item[]; onToggle: () => void; onRemove: () => void }) {
+function ShoppingRow({ line, have, turning, onToggle, onRemove }: { line: ShoppingItem; have: Item[]; turning: string | null; onToggle: () => void; onRemove: () => void }) {
   const left = have.reduce((n, i) => n + i.qty * i.fraction, 0);
   return (
     <View role="listitem" className="border-border min-h-12 flex-row items-center gap-2 border-b last:border-b-0">
@@ -114,7 +130,9 @@ function ShoppingRow({ line, have, onToggle, onRemove }: { line: ShoppingItem; h
           <Text className={cn('text-sm', line.checked && 'text-muted-foreground line-through')}>
             {line.name}{line.amount ? <Text className="text-muted-foreground text-sm"> · {line.amount}</Text> : null}
           </Text>
-          {have.length > 0 && !line.checked && (
+          {turning && !line.checked ? (
+            <Text className="text-stage-expiring text-xs">{turning}</Text>
+          ) : have.length > 0 && !line.checked && (
             <Text className="text-muted-foreground text-xs">You still have {have[0]!.unit === 'pcs' ? Math.round(left * 10) / 10 : formatQty(left, have[0]!.unit)} in the fridge</Text>
           )}
         </View>

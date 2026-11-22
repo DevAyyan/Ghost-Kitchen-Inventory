@@ -9,6 +9,7 @@ import { planMove } from '@/lib/domain/storage';
 import { suggestMove } from '@/lib/domain/suggest';
 import type { Item } from '@/lib/domain/types';
 import { snapPoints } from '@/lib/domain/units';
+import { REGION, SCENE_ASPECT, SPRITE_W, zoomTarget } from '@/lib/domain/kitchen-scene';
 
 const NOW = '2026-11-17';
 const item = (over: Partial<Parameters<typeof makeItem>[0]> & { left?: number } = {}): Item => {
@@ -117,5 +118,29 @@ describe('door signals', () => {
     expect(s.counts).toMatchObject({ expiring: 1, spoiled: 1, fresh: 1 });
     expect(s).toMatchObject({ expiring: true, spoiled: true, forgotten: 1, total: 3 });
     expect(isForgotten(rice, stageOf(rice, NOW), NOW)).toBe(true);
+  });
+});
+
+describe('kitchen scene zoom', () => {
+  const zones = ['freezer', 'fridge', 'pantry'] as const;
+
+  it('centres the zone on the window when fully zoomed', () => {
+    for (const zone of zones) {
+      const w = 640, h = w / SCENE_ASPECT, win = { w: 390, h: 844 };
+      const { scale, fx, fy } = zoomTarget(zone, w, h, win.w, win.h);
+      // Box centre sits at (100, 200) in the window; the camera shifts by tx, ty.
+      const tx = win.w / 2 - 100 - scale * fx, ty = win.h / 2 - 200 - scale * fy;
+      expect(100 + scale * fx + tx).toBeCloseTo(win.w / 2);
+      expect(200 + scale * fy + ty).toBeCloseTo(win.h / 2);
+    }
+  });
+
+  it('fits each zone inside the window and fills it along one axis', () => {
+    for (const zone of zones) for (const win of [{ w: 390, h: 844 }, { w: 1280, h: 800 }]) {
+      const w = 640, { scale } = zoomTarget(zone, w, w / SCENE_ASPECT, win.w, win.h);
+      const u = (w / (SPRITE_W * 2)) * scale;
+      const wide = REGION[zone].w * u / win.w, tall = REGION[zone].h * u / win.h;
+      expect(Math.max(wide, tall)).toBeCloseTo(0.96);
+    }
   });
 });

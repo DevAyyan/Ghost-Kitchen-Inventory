@@ -1,0 +1,221 @@
+{
+  "_about": "Farm-to-shop footprint per kg of food: greenhouse gases in kg CO2-equivalent and freshwater withdrawals in litres. Global means from Poore & Nemecek (2018), Science 360:987, as published by Our World in Data (ghg-per-kg-poore, water-withdrawals-per-kg-poore). Names are matched first, in order; the category is the fallback, set to the lower figure of its group so totals are understated, not inflated. Categories missing here (leftovers, condiment, drink, other) are not counted.",
+  "source": "Poore & Nemecek (2018), via Our World in Data",
+  "byName": [
+    {
+      "match": "salmon|tuna|cod|haddock|trout|mackerel|sardine|fish",
+      "co2": 13.63,
+      "water": 3691.3
+    },
+    {
+      "match": "beef|steak|brisket|burger",
+      "co2": 99.48,
+      "water": 1451.2
+    },
+    {
+      "match": "lamb|mutton",
+      "co2": 39.72,
+      "water": 1802.8
+    },
+    {
+      "match": "prawn|shrimp",
+      "co2": 26.87,
+      "water": 3515.4
+    },
+    {
+      "match": "pork|bacon|ham|sausage|chorizo",
+      "co2": 12.31,
+      "water": 1795.8
+    },
+    {
+      "match": "chicken|turkey|duck",
+      "co2": 9.87,
+      "water": 660
+    },
+    {
+      "match": "cheese|cheddar|parmesan|feta|mozzarella|ricotta|halloumi",
+      "co2": 23.88,
+      "water": 5605.2
+    },
+    {
+      "match": "chocolate",
+      "co2": 46.65,
+      "water": 540.6
+    },
+    {
+      "match": "coffee",
+      "co2": 28.53,
+      "water": 25.9
+    },
+    {
+      "match": "eggs?\\b",
+      "co2": 4.67,
+      "water": 577.7
+    },
+    {
+      "match": "soy milk|soya milk|oat milk",
+      "co2": 0.98,
+      "water": 27.8
+    },
+    {
+      "match": "milk|yogurt|yoghurt|cream|kefir",
+      "co2": 3.15,
+      "water": 628.2
+    },
+    {
+      "match": "tofu",
+      "co2": 3.16,
+      "water": 148.6
+    },
+    {
+      "match": "rice",
+      "co2": 4.45,
+      "water": 2248.4
+    },
+    {
+      "match": "oat",
+      "co2": 2.48,
+      "water": 482.4
+    },
+    {
+      "match": "bread|sourdough|bagel|baguette|pasta|flour|tortilla|wrap|pitta",
+      "co2": 1.57,
+      "water": 647.5
+    },
+    {
+      "match": "tomato",
+      "co2": 2.09,
+      "water": 369.8
+    },
+    {
+      "match": "strawberr|raspberr|blueberr|blackberr|berry|berries|grape",
+      "co2": 1.53,
+      "water": 419.6
+    },
+    {
+      "match": "banana",
+      "co2": 0.86,
+      "water": 114.5
+    },
+    {
+      "match": "apple",
+      "co2": 0.43,
+      "water": 180.1
+    },
+    {
+      "match": "orange|lemon|lime|citrus|grapefruit|clementine|mandarin",
+      "co2": 0.39,
+      "water": 82.7
+    },
+    {
+      "match": "potato",
+      "co2": 0.46,
+      "water": 59.1
+    },
+    {
+      "match": "onion|leek|garlic|shallot",
+      "co2": 0.5,
+      "water": 14.3
+    },
+    {
+      "match": "carrot|beetroot|parsnip|turnip|swede|radish",
+      "co2": 0.43,
+      "water": 28.4
+    },
+    {
+      "match": "broccoli|cabbage|cauliflower|kale|sprout",
+      "co2": 0.51,
+      "water": 119.4
+    },
+    {
+      "match": "peas?\\b",
+      "co2": 0.98,
+      "water": 396.6
+    }
+  ],
+  "byCategory": {
+    "meat": {
+      "co2": 9.87,
+      "water": 660
+    },
+    "fish": {
+      "co2": 13.63,
+      "water": 3691.3
+    },
+    "dairy": {
+      "co2": 3.15,
+      "water": 628.2
+    },
+    "eggs": {
+      "co2": 4.67,
+      "water": 577.7
+    },
+    "vegetable": {
+      "co2": 0.43,
+      "water": 28.4
+    },
+    "herbs": {
+      "co2": 0.53,
+      "water": 102.5
+    },
+    "produce": {
+      "co2": 0.43,
+      "water": 28.4
+    },
+    "fruit": {
+      "co2": 0.39,
+      "water": 82.7
+    },
+    "bakery": {
+      "co2": 1.57,
+      "water": 647.5
+    },
+    "dry": {
+      "co2": 1.18,
+      "water": 17.1
+    },
+    "frozen": {
+      "co2": 0.43,
+      "water": 28.4
+    }
+  },
+  "_pieces": "Typical weight in kg of one piece, for amounts counted in pieces. Pieces of anything not listed are not counted.",
+  "pieceKg": [
+    {
+      "match": "eggs?\\b",
+      "kg": 0.06
+    },
+    {
+      "match": "avocado",
+      "kg": 0.17
+    },
+    {
+      "match": "banana",
+      "kg": 0.12
+    },
+    {
+      "match": "apple|orange|onion|pepper",
+      "kg": 0.15
+    },
+    {
+      "match": "lemon|lime",
+      "kg": 0.1
+    },
+    {
+      "match": "cucumber",
+      "kg": 0.3
+    },
+    {
+      "match": "garlic",
+      "kg": 0.05
+    },
+    {
+      "match": "loaf|bread|sourdough",
+      "kg": 0.8
+    },
+    {
+      "match": "chicken breast",
+      "kg": 0.2
+    }
+  ]
+}

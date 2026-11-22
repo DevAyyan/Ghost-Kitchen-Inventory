@@ -26,7 +26,8 @@
     --border: 268 12% 21%;
     --input: 268 12% 25%;
     --ring: 155 87% 59%;
-    --radius: 0.5rem;
+    /* Square corners: pixel art has no curves. */
+    --radius: 0rem;
 
     /* Freshness stages: the only colourful system in the UI. Always paired with an icon and label. */
     --stage-fresh: 158 58% 52%;
@@ -44,5 +45,17 @@
     /* Paper receipt preview */
     --paper: 40 40% 93%;
     --paper-foreground: 30 12% 16%;
+  }
+}
+
+/* Web: anything that isn't one of our Text components (native <select> options, inputs, portals)
+   still gets the pixel font. Android takes it from the components. */
+@layer base {
+  html, body, button, input, select, option, textarea {
+    font-family: VT323, ui-monospace, monospace;
+  }
+  /* Pixelify Sans joins "fi" into one glyph that reads as "A" ("Salmon fillet" -> "Salmon Allet"). */
+  * {
+    font-variant-ligatures: none;
   }
 }

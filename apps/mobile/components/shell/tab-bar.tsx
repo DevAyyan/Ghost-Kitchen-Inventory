@@ -1,3 +1,4 @@
+import { Hop } from '@/components/common/pixel-motion';
 import { Icon } from '@/components/ui/icon';
 import { Progress } from '@/components/ui/progress';
 import { Text } from '@/components/ui/text';
@@ -36,10 +37,10 @@ export function AppTabBar({ state, navigation, insets }: BottomTabBarProps) {
               accessibilityState={{ selected: active }}
               accessibilityLabel={n.label}
               className="min-h-16 flex-1 items-center justify-center gap-1 py-2 web:focus-visible:ring-2 web:focus-visible:ring-ring web:outline-none">
-              <View className={cn('rounded-full px-4 py-1', active && 'bg-primary/15')}>
+              <Hop on={active} className={cn('rounded-sm px-4 py-1', active && 'bg-primary/15')}>
                 <Icon as={n.icon} size={20} className={active ? 'text-primary' : 'text-muted-foreground'} />
-              </View>
-              <Text className={cn('text-xs', active ? 'text-foreground font-semibold' : 'text-muted-foreground')}>{n.label}</Text>
+              </Hop>
+              <Text className={cn('text-sm leading-5', active ? 'text-foreground font-semibold' : 'text-muted-foreground')}>{n.label}</Text>
             </Pressable>
           );
         })}
@@ -61,7 +62,7 @@ export function AppTabBar({ state, navigation, insets }: BottomTabBarProps) {
               'web:hover:bg-accent min-h-11 flex-row items-center gap-3 rounded-md px-3 web:focus-visible:ring-2 web:focus-visible:ring-ring web:outline-none',
               active && 'bg-accent'
             )}>
-            {active && <View className="bg-primary absolute bottom-2 left-0 top-2 w-0.5 rounded-full" />}
+            {active && <View className="bg-primary absolute bottom-2 left-0 top-2 w-0.5 rounded-sm" />}
             <Icon as={n.icon} size={18} className={active ? 'text-primary' : 'text-muted-foreground'} />
             <Text className={cn('text-sm', active ? 'font-semibold' : 'text-muted-foreground')}>{n.label}</Text>
           </Pressable>
@@ -72,36 +73,31 @@ export function AppTabBar({ state, navigation, insets }: BottomTabBarProps) {
   );
 }
 
+/** Share of the day's AI requests after which the sidebar warns. Below it, the numbers live in Settings. */
+const QUOTA_WARN_AT = 0.8;
+
+/**
+ * A warning in the sidebar when AI receipt reading is about to run out for the day. Everyday usage and the
+ * reading mode are in Settings → Server; here they only took up space nobody needed.
+ */
 function QuotaMeter() {
   const status = useServer((s) => s.status);
   const check = useServer((s) => s.check);
   React.useEffect(() => { void check(); }, [check]);
-  const quota = status?.ai.enabled ? { used: status.ai.usedToday, limit: status.ai.limitPerDay } : null;
   const tesseractOnly = useSettings((s) => s.settings.tesseractOnly);
-  const reachable = useServer((s) => s.reachable);
-  // Says what reading receipts will actually use right now, not an internal state.
-  const mode = tesseractOnly
-    ? 'Basic receipt reading (AI turned off in Settings)'
-    : quota
-      ? 'AI receipt reading: requests used today'
-      : reachable === false
-        ? 'Offline: scanning needs your server'
-        : reachable === null
-          ? 'Checking your server…'
-          : 'Basic receipt reading (AI not set up on the server)';
+  if (tesseractOnly || !status?.ai.enabled) return null;
+  const { usedToday: used, limitPerDay: limit } = status.ai;
+  if (used < limit * QUOTA_WARN_AT) return null;
+  const left = Math.max(0, limit - used);
   return (
-    <View className="mt-auto gap-2 p-2">
-      <Text className="text-muted-foreground text-xs">
-        {mode}
+    <View role="status" className="border-warning/60 bg-warning/10 mt-auto gap-2 rounded-md border p-3">
+      <Text className="text-sm font-semibold">
+        {left === 0 ? 'AI reading is used up for today' : `${left} AI reading${left === 1 ? '' : 's'} left today`}
       </Text>
-      {!tesseractOnly && quota && (
-        <>
-          <Text className="text-sm font-semibold tabular-nums">
-            {quota.used} / {quota.limit}
-          </Text>
-          <Progress value={Math.min(100, (quota.used / Math.max(1, quota.limit)) * 100)} className="h-1.5" aria-label="AI requests used today" />
-        </>
-      )}
+      <Text className="text-muted-foreground text-xs">
+        {left === 0 ? 'Receipts are read with basic rules until tomorrow.' : 'After that, receipts are read with basic rules until tomorrow.'}
+      </Text>
+      <Progress value={Math.min(100, (used / Math.max(1, limit)) * 100)} className="h-1.5" aria-label="AI readings used today" />
     </View>
   );
 }

@@ -18,6 +18,31 @@ const post = (a: FastifyInstance, url: string, body: unknown, key?: string) =>
 const item = (id: string, name: string) => ({ id, name, category: 'produce', zone: 'fridge', qty: 1, fraction: 1, priceMinor: 100, currency: 'EUR', purchased: '2026-11-01', expires: '2026-11-08', shelfDays: 7, status: 'active' });
 
 describe('shared households', () => {
+  it('wakes a waiting device the moment another device changes the kitchen', async () => {
+    const { a } = await make();
+    const { key } = (await post(a, '/v1/households', { name: 'Flat 4B' })).json();
+    const t0 = Date.now();
+    const waiting = post(a, '/v1/households/wait', { deviceId: 'laptop-bbbb', since: 0 }, key);
+    await new Promise((r) => setTimeout(r, 30));
+    await post(a, '/v1/households/sync', { deviceId: 'phone-aaaa', changes: [{ collection: 'items', id: 'i1', updatedAt: 1, deleted: false, data: item('i1', 'Milk') }] }, key);
+    expect((await waiting).json()).toEqual({ changed: true });
+    expect(Date.now() - t0).toBeLessThan(1000); // well before the wait would have run out
+  });
+
+  it("isn't woken by its own change, answers at once for one it missed, and times out quietly", async () => {
+    const { a } = await make();
+    const { key } = (await post(a, '/v1/households', { name: 'Flat 4B' })).json();
+    const own = post(a, '/v1/households/wait', { deviceId: 'phone-aaaa', since: 0 }, key);
+    await new Promise((r) => setTimeout(r, 30));
+    const pushed = (await post(a, '/v1/households/sync', { deviceId: 'phone-aaaa', changes: [{ collection: 'items', id: 'i1', updatedAt: 1, deleted: false, data: item('i1', 'Milk') }] }, key)).json();
+    expect((await own).json()).toEqual({ changed: false }); // the test config's short wait ran out
+
+    // Another device that hasn't seen it yet gets told straight away; one that has, waits.
+    expect((await post(a, '/v1/households/wait', { deviceId: 'laptop-bbbb', since: 0 }, key)).json()).toEqual({ changed: true });
+    expect((await post(a, '/v1/households/wait', { deviceId: 'laptop-bbbb', since: pushed.cursor }, key)).json()).toEqual({ changed: false });
+    expect((await post(a, '/v1/households/wait', { deviceId: 'laptop-bbbb', since: 0 }, 'nope.nope')).statusCode).toBe(401);
+  });
+
   it('creates, invites, joins and syncs between two devices', async () => {
     const { a } = await make();
     const created = (await post(a, '/v1/households', { name: 'Flat 4B' })).json();

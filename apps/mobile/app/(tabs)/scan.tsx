@@ -1,13 +1,14 @@
 import { ConfirmDialog } from '@/components/common/confirm-dialog';
 import { Screen } from '@/components/common/screen';
+import { BarcodeSheet } from '@/components/scan/barcode-sheet';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
-import { api, ApiError, isApiConfigured } from '@/lib/api';
+import { api, ApiError, isApiConfigured, type BarcodeProduct } from '@/lib/api';
 import { today } from '@/lib/domain/dates';
-import { applyLessons, draftFromItemPhoto, draftFromScan, needsExpiry, withInfo } from '@/lib/domain/draft';
+import { applyLessons, draftFromBarcode, draftFromItemPhoto, draftFromScan, needsExpiry, withInfo } from '@/lib/domain/draft';
 import { learnFromHistory } from '@/lib/domain/learning';
 import { useLayout } from '@/lib/hooks';
 import { captureReceipt, saveThumbnail, type PhotoSource, type ReceiptPhoto } from '@/lib/photos';
@@ -18,10 +19,11 @@ import { useScan } from '@/lib/store/scan-store';
 import { useServer } from '@/lib/store/server-store';
 import { toast } from '@/lib/store/toast';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { Camera, CircleAlert, Images, LoaderCircle, PenLine, ReceiptText, ScanLine, Server } from 'lucide-react-native';
+import { Barcode, Camera, CircleAlert, Images, LoaderCircle, PenLine, ReceiptText, ScanLine, Server } from 'lucide-react-native';
 import { cn } from '@/lib/utils';
 import * as React from 'react';
 import { Image, View } from 'react-native';
+import { Asset } from 'expo-asset';
 
 /** What the photo shows: a paper receipt, or one food item. */
 type Mode = 'receipt' | 'item';
@@ -41,6 +43,7 @@ export default function ScanScreen() {
   const markUnreachable = useServer((s) => s.markUnreachable);
   const [phase, setPhase] = React.useState<Phase>({ kind: 'idle' });
   const [noticeFor, setNoticeFor] = React.useState<{ source: PhotoSource; mode: Mode } | null>(null);
+  const [barcodeOpen, setBarcodeOpen] = React.useState(false);
   const run = React.useRef(0);
 
   // Leaving the tab abandons an in-flight scan (its result is ignored).
@@ -100,6 +103,22 @@ export default function ScanScreen() {
         message: err.message,
       });
     }
+  };
+
+  /** A product found by barcode goes to review like any other: shelf life looked up, date for the user to check. */
+  const fromBarcode = async (p: BarcodeProduct) => {
+    setBarcodeOpen(false);
+    let draft = draftFromBarcode(p, { currency: useSettings.getState().settings.defaultCurrency, date: today() });
+    const { info } = await lookupProducts([p.name]);
+    draft = { ...draft, lines: draft.lines.map((l) => (info.has(l.name) ? withInfo(l, info.get(l.name) ?? null, draft.date) : l)) };
+    setDraft(applyLessons(draft, learnFromHistory(useApp.getState().events, today())));
+    router.push('/review');
+  };
+
+  /** Demo mode: the bundled sample receipt, so a demo needs no paper receipt and no camera. Nothing is sent anywhere. */
+  const scanSample = () => {
+    const uri = Asset.fromModule(require('@/assets/images/demo-receipt.png')).uri;
+    void scan({ upload: { uri }, previewUri: uri });
   };
 
   const pick = async (source: PhotoSource, mode: Mode = 'receipt') => {
@@ -179,8 +198,14 @@ export default function ScanScreen() {
               {settings.tesseractOnly ? ' AI reading is off, so names stay as printed.' : ''}
             </Text>
             <View className="flex-row flex-wrap gap-2">
-              <Button className="h-11" onPress={() => void pick('camera')}>
-                <Icon as={Camera} size={16} className="text-primary-foreground" />
+              {settings.demoMode && (
+                <Button className="h-11" onPress={scanSample}>
+                  <Icon as={ReceiptText} size={16} className="text-primary-foreground" />
+                  <Text>Use the sample receipt</Text>
+                </Button>
+              )}
+              <Button className="h-11" variant={settings.demoMode ? 'outline' : 'default'} onPress={() => void pick('camera')}>
+                <Icon as={Camera} size={16} className={settings.demoMode ? undefined : 'text-primary-foreground'} />
                 <Text>Take photo</Text>
               </Button>
               <Button variant="outline" className="h-11" onPress={() => void pick('library')}>
@@ -195,7 +220,7 @@ export default function ScanScreen() {
             <Icon as={ScanLine} size={32} className="text-primary" />
             <Text role="heading" aria-level={2} className="font-semibold">{isPhone ? 'Snap a single item' : 'Upload a photo of one item'}</Text>
             <Text className={cn('text-muted-foreground text-sm', !isPhone && 'flex-1')}>
-              For food without a receipt: leftovers, gifts, market buys. One item per photo, close up. We name it and read any date printed on the pack. It has no price, so it stays out of your ledger unless you add one.
+              For food without a receipt: leftovers, gifts, market buys. One item per photo, close up, or scan its barcode. We name it and read any date printed on the pack. It has no price, so it stays out of your ledger unless you add one.
             </Text>
             <View className="flex-row flex-wrap gap-2">
               <Button variant="outline" className="h-11" onPress={() => void pick('camera', 'item')}>
@@ -206,6 +231,11 @@ export default function ScanScreen() {
                 <Icon as={Images} size={16} />
                 <Text>{isPhone ? 'Gallery' : 'Choose image'}</Text>
               </Button>
+              {/* No AI needed: the barcode gives the name, so this works with AI reading turned off. */}
+              <Button variant="outline" className="h-11" onPress={() => setBarcodeOpen(true)}>
+                <Icon as={Barcode} size={16} />
+                <Text>Barcode</Text>
+              </Button>
             </View>
           </CardContent>
         </Card>
@@ -215,6 +245,7 @@ export default function ScanScreen() {
         <Text>No photo? Enter items by hand</Text>
       </Button>
 
+      <BarcodeSheet open={barcodeOpen} onClose={() => setBarcodeOpen(false)} onFound={(p) => void fromBarcode(p)} />
       <ConfirmDialog
         open={noticeFor !== null}
         onOpenChange={(o) => !o && setNoticeFor(null)}
@@ -245,7 +276,7 @@ export default function ScanScreen() {
 function Step({ done, active, label }: { done: boolean; active: boolean; label: string }) {
   return (
     <View className="border-border min-h-12 flex-row items-center gap-3 border-b py-2 last:border-b-0">
-      {active ? <Icon as={LoaderCircle} size={16} className="text-primary animate-spin" /> : <View className={done ? 'bg-stage-fresh h-2 w-2 rounded-full' : 'bg-muted h-2 w-2 rounded-full'} />}
+      {active ? <Icon as={LoaderCircle} size={16} className="text-primary animate-spin" /> : <View className={done ? 'bg-stage-fresh h-2 w-2 rounded-sm' : 'bg-muted h-2 w-2 rounded-sm'} />}
       <Text className={active ? 'text-sm font-semibold' : done ? 'text-stage-fresh text-sm' : 'text-muted-foreground text-sm'}>{label}{active ? '…' : ''}</Text>
     </View>
   );

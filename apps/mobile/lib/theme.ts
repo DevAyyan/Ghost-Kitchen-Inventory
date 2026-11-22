@@ -28,33 +28,11 @@ type Stops = readonly [string, string, ...string[]];
  * Comma-form hsl/hsla so every React Native and browser colour parser accepts it.
  */
 export const MATERIALS = {
-  steel: ['hsl(214, 10%, 66%)', 'hsl(214, 9%, 48%)', 'hsl(214, 10%, 36%)'] as Stops,
-  steelBar: ['hsl(214, 14%, 82%)', 'hsl(214, 10%, 52%)'] as Stops,
-  handle: ['hsl(214, 10%, 40%)', 'hsl(214, 16%, 86%)', 'hsl(214, 10%, 44%)'] as Stops,
-  gasket: 'hsl(220, 14%, 8%)',
-  fridgeInside: ['hsl(196, 28%, 30%)', 'hsl(214, 24%, 16%)', 'hsl(220, 24%, 11%)'] as Stops,
-  freezerInside: ['hsl(200, 44%, 42%)', 'hsl(206, 36%, 24%)', 'hsl(212, 30%, 16%)'] as Stops,
+  /** The bar of an open fridge or freezer's lamp. */
   lamp: 'hsla(190, 90%, 94%, 0.95)',
-  lampGlow: ['hsla(190, 80%, 92%, 0.28)', 'hsla(190, 80%, 92%, 0)'] as Stops,
-  glass: ['hsla(190, 70%, 92%, 0.6)', 'hsla(190, 40%, 62%, 0.28)'] as Stops,
-  frost: ['hsla(200, 80%, 96%, 0.75)', 'hsla(200, 50%, 70%, 0.35)'] as Stops,
-  shelfShadow: ['hsla(0, 0%, 0%, 0.4)', 'hsla(0, 0%, 0%, 0)'] as Stops,
-  woodFrame: ['hsl(26, 34%, 30%)', 'hsl(24, 32%, 21%)'] as Stops,
-  woodPlank: ['hsl(30, 40%, 40%)', 'hsl(27, 38%, 31%)', 'hsl(25, 36%, 24%)'] as Stops,
-  woodBack: ['hsl(24, 28%, 15%)', 'hsl(22, 26%, 10%)'] as Stops,
-  woodGrain: 'hsla(24, 40%, 14%, 0.35)',
-  brass: ['hsl(44, 62%, 62%)', 'hsl(38, 56%, 40%)'] as Stops,
-  frostSpeck: 'hsla(200, 90%, 97%, 0.8)',
-  /** Light the fridge lamp gives off when the compartment holds something dead: dim and cold. */
-  lampHaunted: ['hsla(200, 30%, 70%, 0.14)', 'hsla(200, 30%, 70%, 0)'] as Stops,
-
-  // Decay overlays on food tiles. Mould uses the aging (olive) and rotting (violet) stage hues,
-  // so decay stays inside the freshness colour system.
+  // Mould on food tiles uses the aging (olive) and rotting (violet) stage hues, so decay stays inside the
+  // freshness colour system.
   mould: ['hsla(70, 45%, 52%, 0.85)', 'hsla(272, 45%, 62%, 0.75)', 'hsla(90, 22%, 40%, 0.85)'] as const,
-  yellowing: 'hsla(48, 70%, 50%, 0.14)',
-  cobweb: 'hsla(220, 20%, 92%, 0.55)',
-  ghost: 'hsla(220, 30%, 96%, 0.92)',
-  ghostEye: 'hsl(268, 20%, 7%)',
 
   // Graveyard scene.
   night: ['hsl(270, 32%, 14%)', 'hsl(269, 24%, 9%)', 'hsl(268, 20%, 7%)'] as Stops,
@@ -65,20 +43,18 @@ export const MATERIALS = {
   earth: ['hsl(24, 22%, 16%)', 'hsl(24, 20%, 9%)'] as Stops,
   /** Mist rising off the ground: clear at the top so it has no hard edge across the stones. */
   fog: ['hsla(220, 30%, 85%, 0)', 'hsla(220, 30%, 85%, 0.05)', 'hsla(220, 30%, 85%, 0.12)'] as Stops,
+} as const;
 
-  // Storage doors (fridge screen, closed state).
-  /** Highlight across the top of a fridge magnet, so it reads as glossy plastic. */
-  magnetGloss: ['hsla(0, 0%, 100%, 0.45)', 'hsla(0, 0%, 100%, 0)'] as Stops,
-  doorGap: 'hsl(220, 20%, 4%)',
-  /** Light from expiring food: the expiring stage hue, so it stays inside the freshness colours. Dim over the
-   *  near-black gap so it reads as a glow through a crack, not an orange stripe painted on. */
-  ember: 'hsla(24, 92%, 52%, 0.6)',
-  emberSpill: ['hsla(24, 95%, 60%, 0)', 'hsla(24, 95%, 60%, 0.32)'] as Stops,
-  engraveOnSteel: 'hsl(220, 16%, 13%)',
-  engraveOnWood: 'hsl(36, 40%, 86%)',
-  steelBrush: 'hsla(0, 0%, 100%, 0.08)',
-  panelLine: 'hsla(0, 0%, 0%, 0.22)',
-  woodPanel: 'hsla(30, 40%, 60%, 0.10)',
+/**
+ * Flat colours sampled from the kitchen sprites after their spooky grade (scripts/spookify-sprites.py), so an
+ * open compartment looks like the door you just zoomed into. Pixel art has no gradients: each part is one
+ * colour with a darker edge. `text` sits on `body`, `insideText` on `inside`; both clear 4.5:1.
+ */
+export const PIXEL = {
+  outline: '#1f221d',
+  fridge: { body: '#788472', edge: '#535b4f', inside: '#536e6e', shelf: '#425050', shelfTop: '#5b7b7b', text: '#0f110e', insideText: '#e6ece6' },
+  freezer: { body: '#788472', edge: '#535b4f', inside: '#556767', shelf: '#3c4848', shelfTop: '#618585', text: '#0f110e', insideText: '#e6ece6' },
+  pantry: { body: '#3b2f27', edge: '#241c18', inside: '#2f251f', shelf: '#56473a', shelfTop: '#735e45', text: '#f0f0e6', insideText: '#f0f0e6' },
 } as const;
 
 export const NAV_THEME: Theme = {

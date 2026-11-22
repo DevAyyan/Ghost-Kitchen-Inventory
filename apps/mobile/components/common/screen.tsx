@@ -1,9 +1,12 @@
+import { StepIn } from '@/components/common/pixel-motion';
+import { useIsFocused } from 'expo-router';
 import { Art, type ArtName } from '@/components/halloween/art';
 import { Text } from '@/components/ui/text';
 import { isApiConfigured } from '@/lib/api';
 import { useServer } from '@/lib/store/server-store';
+import { useSettings } from '@/lib/store/settings-store';
 import { cn } from '@/lib/utils';
-import { WifiOff } from 'lucide-react-native';
+import { Sparkles, WifiOff } from 'lucide-react-native';
 import * as React from 'react';
 import { ScrollView, View } from 'react-native';
 import { Icon } from '@/components/ui/icon';
@@ -32,39 +35,24 @@ interface ScreenProps {
   art?: ArtName;
 }
 
-/**
- * Lets something inside the page keep itself in view after the layout above the reader changes. Used by
- * storage doors: closing a tall section shrinks it, which would leave the reader past its bottom, looking
- * at whatever came next instead of the door they just shut.
- */
-export const ScreenScroll = React.createContext<{ reveal: (view: View | null) => void } | null>(null);
-
 /** Page scaffold: one h1 per screen, optional actions, offline banner, max content width on desktop. */
 export function Screen({ title, description, actions, children, fabClearance, scroll = true, scrollRef, needsServer, display, art }: ScreenProps) {
-  const unreachable = useServer((s) => s.reachable === false) && isApiConfigured() && !!needsServer;
-  const scroller = React.useRef<ScrollView | null>(null);
-  const offset = React.useRef(0);
-  const setScroller = React.useCallback((node: ScrollView | null) => {
-    scroller.current = node;
-    if (typeof scrollRef === 'function') scrollRef(node);
-    else if (scrollRef) (scrollRef as React.MutableRefObject<ScrollView | null>).current = node;
-  }, [scrollRef]);
-  const scrollApi = React.useMemo(() => ({
-    reveal: (view: View | null) => {
-      const sv = scroller.current as unknown as View | null;
-      if (!view || !sv) return;
-      // Window coordinates work the same on web and Android; only scroll if its top went above the view.
-      sv.measureInWindow((_x, svTop) => {
-        view.measureInWindow((_vx, viewTop) => {
-          const gap = viewTop - svTop;
-          if (gap >= 0) return;
-          scroller.current?.scrollTo({ y: Math.max(0, offset.current + gap - 12), animated: true });
-        });
-      });
-    },
-  }), []);
+  const demoMode = useSettings((s) => s.settings.demoMode);
+  const serverDown = useServer((s) => s.reachable === false);
+  const demo = demoMode && !!needsServer;
+  const unreachable = !demoMode && serverDown && isApiConfigured() && !!needsServer;
+  // Each visit to the screen replays the step-in; the content isn't remounted, so nothing typed is lost.
+  const focused = useIsFocused();
+  const [visits, setVisits] = React.useState(0);
+  React.useEffect(() => { if (focused) setVisits((v) => v + 1); }, [focused]);
   const content = (
-    <View className="mx-auto w-full max-w-6xl gap-4">
+    <StepIn trigger={visits} className="mx-auto w-full max-w-6xl gap-4">
+      {demo && (
+        <View role="status" className="border-primary/60 bg-primary/10 flex-row items-center gap-2 rounded-lg border px-3 py-2">
+          <Icon as={Sparkles} size={16} className="text-primary" />
+          <Text className="flex-1 text-sm">Demo mode: answers here are recorded samples, not a live reading. Turn it off in Settings.</Text>
+        </View>
+      )}
       {unreachable && (
         <View role="status" className="border-warning/60 bg-warning/10 flex-row items-center gap-2 rounded-lg border px-3 py-2">
           <Icon as={WifiOff} size={16} className="text-warning" />
@@ -77,7 +65,7 @@ export function Screen({ title, description, actions, children, fabClearance, sc
         <View className="flex-row flex-wrap items-center justify-between gap-3">
           <View className="min-w-0 shrink flex-row items-center gap-2">
             {art ? <Art name={art} size={32} /> : null}
-            <Text role="heading" aria-level={1} className={cn('min-w-0 shrink', display ? 'font-display pb-2 text-4xl leading-10' : 'font-heading text-2xl tracking-tight')}>
+            <Text role="heading" aria-level={1} className={cn('min-w-0 shrink', display ? 'font-display pb-2 text-4xl leading-10' : 'font-display text-2xl tracking-tight')}>
               {title}
             </Text>
           </View>
@@ -86,18 +74,16 @@ export function Screen({ title, description, actions, children, fabClearance, sc
         {description ? <Text className="text-muted-foreground max-w-prose text-sm">{description}</Text> : null}
       </View>
       {children}
-    </View>
+    </StepIn>
   );
   if (!scroll) return <View className="flex-1 px-4 pt-4">{content}</View>;
   return (
     <ScrollView
-      ref={setScroller}
-      onScroll={(e) => { offset.current = e.nativeEvent.contentOffset.y; }}
-      scrollEventThrottle={32}
+      ref={scrollRef}
       className="flex-1"
       contentContainerClassName={cn('px-4 pt-4 md:px-6 md:pt-6', fabClearance ? 'pb-28' : 'pb-10')}
       keyboardShouldPersistTaps="handled">
-      <ScreenScroll.Provider value={scrollApi}>{content}</ScreenScroll.Provider>
+      {content}
     </ScrollView>
   );
 }

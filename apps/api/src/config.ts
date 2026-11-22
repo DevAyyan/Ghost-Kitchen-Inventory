@@ -30,16 +30,29 @@ const Env = z.object({
   MEALDB_API_KEY: z.string().default('1'),
   MEALDB_BASE_URL: z.string().url().default('https://www.themealdb.com/api/json/v1'),
   FX_BASE_URL: z.string().url().default('https://api.frankfurter.dev/v2'),
+  /** Barcode lookups (free, no key). */
+  OFF_BASE_URL: z.string().url().default('https://world.openfoodfacts.org'),
 
   /** Comma-separated browser origins allowed to call the API. Native apps send no Origin. */
   CORS_ORIGINS: z.string().default(''),
-  /** If set, every /v1 request must send `Authorization: Bearer <token>`. */
+  /** If set, every /v1 request must send `Authorization: Bearer <token>`. Ignored when Clerk sign-in is on. */
   API_TOKEN: optional,
+  /**
+   * Clerk sign-in (free Hobby plan). When set, every /v1 request except /v1/status needs a signed-in user,
+   * and the app is told this key through /v1/status. Create a Clerk app and copy its publishable key.
+   */
+  CLERK_PUBLISHABLE_KEY: optional,
+  /** Comma-separated web origins allowed to use the sessions (the token's `azp`). Empty = any. */
+  CLERK_AUTHORIZED_PARTIES: z.string().default(''),
+  /** Override for Clerk's key endpoint (tests, or a proxied Clerk). */
+  CLERK_JWKS_URL: optional,
   /** Directory of the exported web app to serve at /, if any. */
   WEB_DIR: optional,
   RATE_LIMIT_PER_MIN: z.coerce.number().int().positive().default(120),
   TRUST_PROXY: z.enum(['true', 'false']).default('false'),
   MAX_UPLOAD_MB: z.coerce.number().positive().default(10),
+  /** How long a device's "tell me when my kitchen changes" request is held open before it's answered anyway. */
+  HOUSEHOLD_WAIT_MS: z.coerce.number().int().min(10).max(60_000).default(25_000),
 });
 
 export type Config = z.infer<typeof Env>;

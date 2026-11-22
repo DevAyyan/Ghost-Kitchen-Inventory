@@ -25,6 +25,7 @@ import { toast } from '@/lib/store/toast';
 import { cn } from '@/lib/utils';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { CircleAlert, CircleCheck, RefreshCw, Sparkles, UtensilsCrossed } from 'lucide-react-native';
+import { LeftoversButton } from '@/components/recipes/leftovers-button';
 import * as React from 'react';
 import { ScrollView, View } from 'react-native';
 
@@ -123,6 +124,7 @@ export default function RecipesScreen() {
           <AlertDescription className="text-foreground">
             {cooked.title} cooked. {cooked.count} ingredient{cooked.count === 1 ? '' : 's'} updated, about {cooked.saved} of food rescued.
           </AlertDescription>
+          <View className="mb-2 ml-6 mt-2"><LeftoversButton title={cooked.title} /></View>
         </Alert>
       )}
 
@@ -149,7 +151,9 @@ export default function RecipesScreen() {
           description={state.warnings[0] ?? 'Try fewer filters, or add more groceries.'}
           action={settings.diets.length ? (
             <Button variant="outline" className="h-11" onPress={() => { updateSettings({ diets: [] }); void load([]); }}><Text>Clear diet filters</Text></Button>
-          ) : undefined}
+          ) : (
+            <Button variant="outline" className="h-11" onPress={() => router.navigate('/scan')}><Text>Add food</Text></Button>
+          )}
         />
       ) : (
         <>
@@ -175,8 +179,8 @@ export default function RecipesScreen() {
             </View>
           )}
           <View className={cn('gap-4', !isPhone && 'flex-row flex-wrap items-start')}>
-            {(state.paging.page === 1 ? state.recipes.slice(1) : state.recipes).map((r) => (
-              <RecipeCard key={r.id} recipe={r} items={byId} saves={summarize(rescuedValue(r, byId)).text} onCook={() => setCooking(r)} onPlan={() => setPlanning(r)} defaultOpen={false} />
+            {(state.paging.page === 1 ? state.recipes.slice(1) : state.recipes).map((r, n) => (
+              <RecipeCard key={r.id} index={n + 1} recipe={r} items={byId} saves={summarize(rescuedValue(r, byId)).text} onCook={() => setCooking(r)} onPlan={() => setPlanning(r)} defaultOpen={false} />
             ))}
           </View>
           <Pager page={state.paging.page} pages={state.paging.pages} onChange={(p) => search(p)} />

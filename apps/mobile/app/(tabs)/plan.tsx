@@ -5,6 +5,8 @@ import { ItemsLine } from '@/components/food/items-line';
 import { MealRow } from '@/components/plan/meal-row';
 import { PlanSheet } from '@/components/plan/plan-sheet';
 import { ShoppingCard } from '@/components/plan/shopping-card';
+import { RescuePlanButton } from '@/components/plan/rescue-plan-button';
+import { LeftoversButton } from '@/components/recipes/leftovers-button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,7 +22,7 @@ import { useHousehold } from '@/lib/store/household-store';
 import { toast } from '@/lib/store/toast';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'expo-router';
-import { CalendarClock, CalendarPlus, ChefHat, Sparkles, Users } from 'lucide-react-native';
+import { CalendarClock, CalendarPlus, ChefHat, CircleCheck, Sparkles, Users } from 'lucide-react-native';
 import * as React from 'react';
 import { View } from 'react-native';
 
@@ -42,6 +44,8 @@ export default function PlanScreen() {
 
   const [sheet, setSheet] = React.useState<{ kind: 'new' } | { kind: 'move'; entry: PlanEntry } | null>(null);
   const [cooking, setCooking] = React.useState<PlanEntry | null>(null);
+  /** The meal just cooked, for the "Save leftovers" prompt. */
+  const [cooked, setCooked] = React.useState<string | null>(null);
 
   const byId = React.useMemo(() => new Map(allItems.map((i) => [i.id, i])), [allItems]);
   const unplanned = unplannedAtRisk(items, plan, now);
@@ -52,7 +56,10 @@ export default function PlanScreen() {
   const confirmCook = () => {
     if (!cooking) return;
     const res = cookPlan(cooking.id);
-    if (res) toast(`${cooking.title} cooked · ${res.count} ingredient${res.count === 1 ? '' : 's'} used${res.saved.length ? ` · ${summarize(res.saved).text} rescued` : ''}`);
+    if (res) {
+      toast(`${cooking.title} cooked · ${res.count} ingredient${res.count === 1 ? '' : 's'} used${res.saved.length ? ` · ${summarize(res.saved).text} rescued` : ''}`);
+      setCooked(cooking.title);
+    }
     setCooking(null);
   };
 
@@ -66,6 +73,12 @@ export default function PlanScreen() {
           <Text>Plan a meal</Text>
         </Button>
       }>
+      {cooked && (
+        <Alert icon={CircleCheck} iconClassName="text-stage-fresh" className="border-stage-fresh/40">
+          <AlertDescription className="text-foreground">{cooked} cooked. Any leftovers?</AlertDescription>
+          <View className="mb-2 ml-6 mt-2"><LeftoversButton title={cooked} /></View>
+        </Alert>
+      )}
       {unplanned.length > 0 && (
         <Card className="border-stage-expiring/50 gap-3 py-4">
           <CardHeader className="px-4">
@@ -78,6 +91,7 @@ export default function PlanScreen() {
                 <Icon as={Sparkles} size={16} />
                 <Text>Find recipes for these</Text>
               </Button>
+              <RescuePlanButton />
               <Button variant="ghost" className="h-11" onPress={() => setSheet({ kind: 'new' })}>
                 <Text>Plan my own meal</Text>
               </Button>

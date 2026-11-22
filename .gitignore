@@ -5,3 +5,11 @@ dist/
 *.aab
 .tmp-shots/
 .expo/
+
+# Python caches
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Screenshots saved by a failing visual test
+e2e/baselines/*.actual.png

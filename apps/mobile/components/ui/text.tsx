@@ -1,3 +1,5 @@
+import { useSettings } from '@/lib/store/settings-store';
+import { largerText } from '@/lib/text-scale';
 import { cn } from '@/lib/utils';
 import { Slot } from '@rn-primitives/slot';
 import { cva, type VariantProps } from 'class-variance-authority';
@@ -6,7 +8,8 @@ import { Platform, Text as RNText, type Role } from 'react-native';
 
 const textVariants = cva(
   cn(
-    'text-foreground text-base',
+    // Pixel font everywhere, for the pixel-art look (VT323; headings opt into font-heading).
+    'font-pixel text-foreground text-base',
     Platform.select({
       web: 'select-text',
     })
@@ -75,10 +78,12 @@ function Text({
     asChild?: boolean;
   }) {
   const textClass = React.useContext(TextClassContext);
+  const large = useSettings((s) => s.settings.largeText);
   const Component = asChild ? Slot : RNText;
+  const classes = cn(textVariants({ variant }), textClass, className);
   return (
     <Component
-      className={cn(textVariants({ variant }), textClass, className)}
+      className={large ? largerText(classes) : classes}
       role={variant ? ROLE[variant] : undefined}
       aria-level={variant ? ARIA_LEVEL[variant] : undefined}
       {...props}

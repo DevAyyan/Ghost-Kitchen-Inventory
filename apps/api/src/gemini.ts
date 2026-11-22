@@ -2,6 +2,7 @@ import type { z } from 'zod';
 import type { Config } from './config.js';
 import { geminiSchema } from './schemas.js';
 import type { Store } from './store.js';
+import { fixMojibakeDeep } from './text.js';
 
 export type AiFailure = 'disabled' | 'quota' | 'upstream' | 'invalid';
 
@@ -132,7 +133,7 @@ export function createGemini(cfg: Config, store: Store, doFetch: Fetch = fetch, 
           const data = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
           const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('');
           let json: unknown;
-          try { json = JSON.parse(text ?? ''); } catch { throw new AiError('invalid', 'Gemini returned malformed JSON.'); }
+          try { json = fixMojibakeDeep(JSON.parse(text ?? '')); } catch { throw new AiError('invalid', 'Gemini returned malformed JSON.'); }
           const parsed = schema.safeParse(json);
           if (!parsed.success) throw new AiError('invalid', 'Gemini returned data in an unexpected shape.');
           return parsed.data;
