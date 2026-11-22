@@ -96,6 +96,8 @@ E2E_URL=http://127.0.0.1:8099 python3 -m pytest e2e      # UPDATE_BASELINES=1 af
 
 Before an Android release, go through `docs/android-checklist.md` on a real phone.
 
+To put the web app on Vercel with the server on your own computer (through a free HTTPS tunnel), see `docs/hosting.md`.
+
 Pixel-art assets are generated (Python 3 with Pillow), so edit the scripts rather than the PNGs. CI reruns
 them and fails if the committed PNGs don't match (`e2e/check_sprites.py`):
 
