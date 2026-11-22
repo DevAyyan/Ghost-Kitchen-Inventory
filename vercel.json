@@ -1,30 +1,75 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": null,
-  "installCommand": "npm ci --prefix apps/api && npm ci --prefix apps/mobile",
-  "buildCommand": "npm run build --prefix apps/api && cd apps/mobile && npx expo export --platform web --clear && cp dist/+not-found.html dist/404.html",
-  "outputDirectory": "apps/mobile/dist",
-  "cleanUrls": true,
-  "rewrites": [
-    { "source": "/v1/:path*", "destination": "/api?__path=/v1/:path*" },
-    { "source": "/health", "destination": "/api?__path=/health" }
-  ],
-  "functions": {
-    "api/index.mjs": {
-      "maxDuration": 60,
-      "includeFiles": "apps/api/node_modules/{tesseract.js,tesseract.js-core,@tesseract.js-data/eng,wasm-feature-detect,regenerator-runtime,node-fetch,bmp-js,zlibjs,is-url,idb-keyval,opencollective-postinstall}/**"
+  "services": {
+    "web": {
+      "root": "apps/mobile",
+      "installCommand": "npm ci",
+      "buildCommand": "npx expo export --platform web --clear && cp dist/+not-found.html dist/404.html",
+      "outputDirectory": "dist",
+      "devCommand": "npx expo start --web --port $PORT",
+      "cleanUrls": true,
+      "headers": [
+        {
+          "source": "/_expo/static/(.*)",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "public, max-age=31536000, immutable"
+            }
+          ]
+        }
+      ]
+    },
+    "api": {
+      "root": "apps/api",
+      "framework": "fastify",
+      "bindings": [
+        {
+          "type": "service",
+          "service": "ocr",
+          "format": "url",
+          "env": "OCR_URL"
+        }
+      ]
+    },
+    "ocr": {
+      "root": "infra/ocr",
+      "runtime": "container",
+      "entrypoint": "Dockerfile"
     }
   },
-  "headers": [
+  "rewrites": [
     {
-      "source": "/_expo/static/(.*)",
-      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+      "source": "/v1/(.*)",
+      "destination": {
+        "service": "api"
+      }
+    },
+    {
+      "source": "/health",
+      "destination": {
+        "service": "api"
+      }
     },
     {
       "source": "/(.*)",
+      "destination": {
+        "service": "web"
+      }
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
       "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "no-referrer" }
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        }
       ]
     }
   ]

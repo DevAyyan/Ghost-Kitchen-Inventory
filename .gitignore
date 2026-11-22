@@ -13,3 +13,6 @@ __pycache__/
 
 # Screenshots saved by a failing visual test
 e2e/baselines/*.actual.png
+
+# Vercel CLI link and local build output
+.vercel/

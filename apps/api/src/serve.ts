@@ -9,7 +9,7 @@ import { PgStore } from './store.js';
 
 /**
  * The API with its real dependencies, for both ways it runs: a long-lived server (src/index.ts, Docker)
- * and a Vercel function (api/index.mjs at the repository root), which builds it once per instance.
+ * and the `api` service on Vercel, whose Fastify runtime runs src/index.ts and takes over its listen() call.
  */
 export async function createServer(cfg: Config = loadConfig()): Promise<{ app: FastifyInstance; close: () => Promise<void> }> {
   const store = new PgStore(cfg.DATABASE_URL, cfg.GEMINI_QUOTA_TZ);

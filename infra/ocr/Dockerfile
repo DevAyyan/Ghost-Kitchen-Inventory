@@ -18,4 +18,6 @@ COPY server.py .
 ENV OMP_THREAD_LIMIT=1 PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 OCR_LANGS=eng MAX_UPLOAD_MB=10
 USER ocr
 EXPOSE 8080
-CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8080"]
+# Vercel routes container traffic to $PORT (80 if unset); a non-root user may not open port 80, so the
+# project sets PORT=8080. Docker Compose sets nothing and gets 8080.
+CMD ["sh", "-c", "exec uvicorn server:app --host 0.0.0.0 --port ${PORT:-8080}"]
