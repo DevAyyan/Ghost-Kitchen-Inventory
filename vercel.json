@@ -23,6 +23,7 @@
     "api": {
       "root": "apps/api",
       "framework": "fastify",
+      "buildCommand": "npm run typecheck",
       "bindings": [
         {
           "type": "service",

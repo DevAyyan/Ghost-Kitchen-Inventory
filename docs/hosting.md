@@ -39,6 +39,10 @@ calls the API on its own address, so no CORS or server address settings are need
 5. **Sign-in.** If Google sign-in fails on the new address, add it in the Clerk dashboard. A public launch
    needs Clerk's production instance on your own domain (`accounts.md`).
 
+The `api` service builds with `npm run typecheck`, not `npm run build`. The Docker build writes `dist/`, and
+when `dist/` exists Vercel serves `dist/app.js` (which has no request handler) instead of `server.ts`, so
+every API request fails with `FUNCTION_INVOCATION_FAILED`.
+
 The OCR container runs as a non-root user, so it listens on 8080 rather than 80. `PORT` doesn't affect the
 other services: the API exports a request handler instead of opening a port, and the web app is static
 files. If receipt scans fail and `/v1/status` shows OCR as down, check `PORT` first.
