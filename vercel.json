@@ -8,6 +8,12 @@
       "outputDirectory": "dist",
       "devCommand": "npx expo start --web --port $PORT",
       "cleanUrls": true,
+      "rewrites": [
+        {
+          "source": "/:page([a-z0-9_-]+)",
+          "destination": "/:page.html"
+        }
+      ],
       "headers": [
         {
           "source": "/_expo/static/(.*)",
