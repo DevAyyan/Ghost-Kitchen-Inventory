@@ -18,6 +18,24 @@ const post = (a: FastifyInstance, url: string, body: unknown, key?: string) =>
 const item = (id: string, name: string) => ({ id, name, category: 'produce', zone: 'fridge', qty: 1, fraction: 1, priceMinor: 100, currency: 'EUR', purchased: '2026-11-01', expires: '2026-11-08', shelfDays: 7, status: 'active' });
 
 describe('shared households', () => {
+  it('wakes a waiting device even when the change goes through another server instance', async () => {
+    // Two instances (as on Vercel) that share only the database: no in-memory wake-up can reach across.
+    const store = new MemoryStore();
+    const one = await buildApp({ cfg: testConfig({ HOUSEHOLD_WAIT_MS: '5000', HOUSEHOLD_POLL_MS: '100' }), store, gemini: fakeGemini(() => ({})), ocr: fakeOcr([]), mealdb: fakeMealDb([], {}) });
+    const two = await buildApp({ cfg: testConfig(), store, gemini: fakeGemini(() => ({})), ocr: fakeOcr([]), mealdb: fakeMealDb([], {}) });
+    try {
+      const { key } = (await post(one, '/v1/households', { name: 'Flat 4B' })).json();
+      const t0 = Date.now();
+      const waiting = post(one, '/v1/households/wait', { deviceId: 'laptop-bbbb', since: 0 }, key);
+      await new Promise((r) => setTimeout(r, 50));
+      await post(two, '/v1/households/sync', { deviceId: 'phone-aaaa', changes: [{ collection: 'items', id: 'i1', updatedAt: 1, deleted: false, data: item('i1', 'Milk') }] }, key);
+      expect((await waiting).json()).toEqual({ changed: true });
+      expect(Date.now() - t0).toBeLessThan(1500); // the database check, well before the 5 s wait ran out
+    } finally {
+      await one.close(); await two.close();
+    }
+  });
+
   it('wakes a waiting device the moment another device changes the kitchen', async () => {
     const { a } = await make();
     const { key } = (await post(a, '/v1/households', { name: 'Flat 4B' })).json();

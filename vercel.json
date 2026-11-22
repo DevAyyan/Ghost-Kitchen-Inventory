@@ -1,0 +1,31 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "npm ci --prefix apps/api && npm ci --prefix apps/mobile",
+  "buildCommand": "npm run build --prefix apps/api && cd apps/mobile && npx expo export --platform web --clear && cp dist/+not-found.html dist/404.html",
+  "outputDirectory": "apps/mobile/dist",
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/v1/:path*", "destination": "/api?__path=/v1/:path*" },
+    { "source": "/health", "destination": "/api?__path=/health" }
+  ],
+  "functions": {
+    "api/index.mjs": {
+      "maxDuration": 60,
+      "includeFiles": "apps/api/node_modules/{tesseract.js,tesseract.js-core,@tesseract.js-data/eng,wasm-feature-detect,regenerator-runtime,node-fetch,bmp-js,zlibjs,is-url,idb-keyval,opencollective-postinstall}/**"
+    }
+  },
+  "headers": [
+    {
+      "source": "/_expo/static/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "no-referrer" }
+      ]
+    }
+  ]
+}

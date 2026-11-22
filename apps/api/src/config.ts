@@ -9,6 +9,8 @@ const Env = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
   OCR_URL: z.string().url().default('http://localhost:8080'),
+  /** service: the Tesseract container at OCR_URL (Docker). local: tesseract.js in this process (Vercel). */
+  OCR_ENGINE: z.enum(['service', 'local']).default('service'),
 
   GEMINI_API_KEY: optional,
   GEMINI_MODEL: z.string().default('gemini-3.5-flash'),
@@ -53,6 +55,8 @@ const Env = z.object({
   MAX_UPLOAD_MB: z.coerce.number().positive().default(10),
   /** How long a device's "tell me when my kitchen changes" request is held open before it's answered anyway. */
   HOUSEHOLD_WAIT_MS: z.coerce.number().int().min(10).max(60_000).default(25_000),
+  /** While waiting, how often to look in the database for a change made through another server instance. */
+  HOUSEHOLD_POLL_MS: z.coerce.number().int().min(10).max(60_000).default(1_500),
 });
 
 export type Config = z.infer<typeof Env>;

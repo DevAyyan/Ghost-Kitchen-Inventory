@@ -49,8 +49,9 @@ const Wait = z.object({ deviceId: z.string().min(8).max(64), since: z.number().i
 /** Open waits per kitchen, so one household can't hold the server's connections. */
 const MAX_WAITERS = 100;
 
-export function registerHouseholdRoutes(app: FastifyInstance, store: Store, now: () => number = Date.now, opts: { waitMs?: number } = {}) {
+export function registerHouseholdRoutes(app: FastifyInstance, store: Store, now: () => number = Date.now, opts: { waitMs?: number; pollMs?: number } = {}) {
   const waitMs = opts.waitMs ?? 25_000;
+  const pollMs = opts.pollMs ?? 1_500;
   /**
    * Devices waiting to hear that their kitchen changed: kitchen id -> callbacks taking the device that
    * made the change. One API process, so this sees every device. An empty device id wakes everyone
@@ -274,8 +275,12 @@ export function registerHouseholdRoutes(app: FastifyInstance, store: Store, now:
     if (set.size >= MAX_WAITERS) return { changed: false };
     waiting.set(who.id, set);
     const changed = await new Promise<boolean>((resolve) => {
+      let finished = false;
       const done = (v: boolean) => {
+        if (finished) return;
+        finished = true;
         clearTimeout(timer);
+        clearInterval(poll);
         set.delete(wake);
         if (set.size === 0 && waiting.get(who.id) === set) waiting.delete(who.id);
         res.raw.off('close', gone);
@@ -285,6 +290,11 @@ export function registerHouseholdRoutes(app: FastifyInstance, store: Store, now:
       // The response's close event, not the request's: that one fires once the body has been read.
       const gone = () => done(false);
       const timer = setTimeout(() => done(false), waitMs);
+      // Several server instances (Vercel) don't share this process's memory, so a change made through
+      // another one never calls `wake` here. Looking in the database now and then catches it either way.
+      const poll = setInterval(() => {
+        void store.getSyncChanges(who.id, since, 1).then((rows) => { if (rows.length) done(true); }).catch(() => {});
+      }, pollMs);
       set.add(wake);
       res.raw.on('close', gone);
     });

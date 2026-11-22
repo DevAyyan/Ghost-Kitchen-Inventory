@@ -188,7 +188,7 @@ export async function buildApp(deps: Deps): Promise<FastifyInstance> {
     return itemPhotos.scan({ image, contentType });
   });
 
-  registerHouseholdRoutes(app, store, Date.now, { waitMs: cfg.HOUSEHOLD_WAIT_MS });
+  registerHouseholdRoutes(app, store, Date.now, { waitMs: cfg.HOUSEHOLD_WAIT_MS, pollMs: cfg.HOUSEHOLD_POLL_MS });
   registerProfileRoutes(app, store);
 
   app.post('/v1/tonight', { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (req) => {
