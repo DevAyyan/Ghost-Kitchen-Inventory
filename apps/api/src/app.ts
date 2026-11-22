@@ -4,7 +4,6 @@ import { join } from 'node:path';
 import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
-import fastifyStatic from '@fastify/static';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { ZodError, z } from 'zod';
 import type { Config } from './config.js';
@@ -232,6 +231,9 @@ export async function buildApp(deps: Deps): Promise<FastifyInstance> {
 
   if (cfg.WEB_DIR && existsSync(cfg.WEB_DIR)) {
     const webDir = cfg.WEB_DIR;
+    // Loaded only here: @fastify/static require()s an ESM-only package, which Vercel's function loader
+    // rejects (ERR_REQUIRE_ESM). Only Docker serves the web app from the API; on Vercel it's its own service.
+    const { default: fastifyStatic } = await import('@fastify/static');
     await app.register(fastifyStatic, { root: webDir, wildcard: false });
     // Expo's static export writes /recipes as recipes.html; serve those for deep links and reloads.
     app.setNotFoundHandler((req, reply) => {
