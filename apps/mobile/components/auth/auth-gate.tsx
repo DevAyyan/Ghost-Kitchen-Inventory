@@ -57,8 +57,12 @@ function Gate({ children }: { children: React.ReactNode }) {
     const t = setTimeout(() => setGaveUpWaiting(true), CLERK_LOAD_WAIT_MS);
     return () => clearTimeout(t);
   }, [isLoaded]);
+  const demoMode = useSettings((s) => s.settings.demoMode);
   // Web: Google sends the browser back here to finish signing in.
   if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location.pathname === '/sso-callback') return <SsoCallback />;
+  // Demo mode answers from data recorded in the app and sends nothing to the server, so it needs no account.
+  // The demo and tour links are read by the fridge screen, so they have to get past here to turn it on.
+  if (demoMode || isDemoLink()) return <>{children}</>;
   if (!me) {
     // Showing the sign-in screen here would look like the sign-in failed: Clerk is still loading the
     // session Google just made, or has it and the profile is on its way (onSignedIn always sets `me`).
@@ -68,6 +72,10 @@ function Gate({ children }: { children: React.ReactNode }) {
   }
   if (prompt) return <SignInScreen onBack={() => useAuthStore.getState().set({ prompt: false })} />;
   return <>{children}</>;
+}
+
+function isDemoLink() {
+  return Platform.OS === 'web' && typeof window !== 'undefined' && /[?&](demo|tour)=1(&|$)/.test(window.location.search);
 }
 
 /** Finishes a Google sign-in on web, then goes to the fridge. */
