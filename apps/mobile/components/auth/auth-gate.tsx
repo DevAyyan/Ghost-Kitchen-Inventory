@@ -7,7 +7,7 @@ import { isApiConfigured } from '@/lib/api';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { useServer } from '@/lib/store/server-store';
 import { useSettings } from '@/lib/store/settings-store';
-import { ClerkProvider, useClerk } from '@clerk/expo';
+import { ClerkProvider, useAuth, useClerk } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
 import { useRouter } from 'expo-router';
 import * as React from 'react';
@@ -44,12 +44,28 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** How long to wait for Clerk before showing the sign-in screen anyway (offline, or Clerk is down). */
+const CLERK_LOAD_WAIT_MS = 8_000;
+
 function Gate({ children }: { children: React.ReactNode }) {
   const me = useAuthStore((s) => s.me);
   const prompt = useAuthStore((s) => s.prompt);
+  const { isLoaded, isSignedIn } = useAuth();
+  const [gaveUpWaiting, setGaveUpWaiting] = React.useState(false);
+  React.useEffect(() => {
+    if (isLoaded) return;
+    const t = setTimeout(() => setGaveUpWaiting(true), CLERK_LOAD_WAIT_MS);
+    return () => clearTimeout(t);
+  }, [isLoaded]);
   // Web: Google sends the browser back here to finish signing in.
   if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location.pathname === '/sso-callback') return <SsoCallback />;
-  if (!me) return <SignInScreen />;
+  if (!me) {
+    // Showing the sign-in screen here would look like the sign-in failed: Clerk is still loading the
+    // session Google just made, or has it and the profile is on its way (onSignedIn always sets `me`).
+    if (isSignedIn) return <Loading label="Signing you in…" />;
+    if (!isLoaded && !gaveUpWaiting) return <Loading />;
+    return <SignInScreen />;
+  }
   if (prompt) return <SignInScreen onBack={() => useAuthStore.getState().set({ prompt: false })} />;
   return <>{children}</>;
 }
