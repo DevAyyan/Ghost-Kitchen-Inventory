@@ -19,6 +19,14 @@ export class AuthError extends Error {
   }
 }
 
+/** Sessions can't be checked right now (Clerk's keys couldn't be loaded): our problem, not a signed-out user. */
+export class AuthUnavailable extends Error {
+  constructor() {
+    super("Can't check sign-in right now.");
+    this.name = 'AuthUnavailable';
+  }
+}
+
 /**
  * Clerk's frontend API host, from a publishable key: `pk_test_` or `pk_live_` followed by the base64 of
  * `<host>$`. Returns null for anything else.
@@ -111,7 +119,11 @@ export function createClerkVerifier(opts: {
       // Only RS256: never let the token pick a weaker algorithm (or "none").
       if (header.alg !== 'RS256' || !header.kid) throw new AuthError('Unsupported token.');
       const key = await keyFor(header.kid);
-      if (!key) throw new AuthError('Unknown signing key.');
+      if (!key) {
+        // No keys at all means Clerk was never reached (a new server instance while it's unreachable).
+        if (keys.size === 0) throw new AuthUnavailable();
+        throw new AuthError('Unknown signing key.');
+      }
       const ok = createVerify('RSA-SHA256').update(`${h}.${p}`).verify(key, Buffer.from(s, 'base64url'));
       if (!ok) throw new AuthError('Bad signature.');
 

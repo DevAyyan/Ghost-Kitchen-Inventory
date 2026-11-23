@@ -7,7 +7,7 @@ import rateLimit from '@fastify/rate-limit';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { ZodError, z } from 'zod';
 import type { Config } from './config.js';
-import { AuthError, createClerkVerifier, type AuthUser, type Verifier } from './auth.js';
+import { AuthError, AuthUnavailable, createClerkVerifier, type AuthUser, type Verifier } from './auth.js';
 import { registerProfileRoutes } from './profile.js';
 import { BarcodeCode, BarcodeError, createBarcodes } from './barcode.js';
 import { createItemPhotoScanner, ItemPhotoError } from './item-photo.js';
@@ -119,6 +119,10 @@ export async function buildApp(deps: Deps): Promise<FastifyInstance> {
       if (!token) throw new AuthError('No session.');
       req.user = await verifier.verify(token);
     } catch (e) {
+      if (e instanceof AuthUnavailable) {
+        req.log.warn('Clerk signing keys unavailable');
+        return reply.code(503).send(error('auth_unavailable', "Can't check sign-in right now. Try again in a moment."));
+      }
       req.log.info({ reason: e instanceof Error ? e.message : 'unknown' }, 'session rejected');
       return reply.code(401).send(error('signed_out', 'Sign in again to keep going.'));
     }

@@ -91,7 +91,8 @@ async function request<T>(path: string, init: RequestInit & { timeoutMs?: number
   if (!base) throw new ApiError('not_configured', 'Set your Ghost Kitchen server address in Settings.', 0);
   const headers = new Headers(init.headers);
   // Signed in: the Clerk session. Otherwise the optional shared server token from Settings.
-  const token = (await sessionToken()) ?? useSettings.getState().settings.apiToken.trim();
+  const session = await sessionToken();
+  const token = session ?? useSettings.getState().settings.apiToken.trim();
   if (token) headers.set('authorization', `Bearer ${token}`);
   // AbortSignal.timeout isn't available on every React Native engine, so time out by hand.
   const controller = new AbortController();
@@ -106,11 +107,17 @@ async function request<T>(path: string, init: RequestInit & { timeoutMs?: number
     clearTimeout(timer);
   }
   const body = (await res.json().catch(() => null)) as { error?: { code: string; message: string } } | null;
+  const auth = useAuthStore.getState();
   if (!res.ok) {
-    // The session ran out: the app keeps working on this device, and asks to sign in again to sync.
-    if (body?.error?.code === 'signed_out') useAuthStore.getState().set({ needsSignIn: true });
+    // The session was turned away: the app keeps working on this device, and asks to sign in again to sync.
+    // Only when a session was actually sent. A request made before Clerk has handed over the session (at
+    // start-up, or just after Google sign-in) goes without one and gets the same 401, but nobody is signed
+    // out; a session that really ended is caught by ClerkBridge instead.
+    if (body?.error?.code === 'signed_out' && session) auth.set({ needsSignIn: true });
     throw new ApiError(body?.error?.code ?? 'http_error', body?.error?.message ?? `Server error (HTTP ${res.status}).`, res.status);
   }
+  // The session works again (refreshed, or signed back in): take the warning down.
+  if (session && auth.needsSignIn) auth.set({ needsSignIn: false });
   return body as T;
 }
 

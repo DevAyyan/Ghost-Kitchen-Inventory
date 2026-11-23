@@ -2,7 +2,7 @@ import { createSign, generateKeyPairSync, type KeyObject } from 'node:crypto';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../src/app.js';
-import { createClerkVerifier, frontendApi } from '../src/auth.js';
+import { AuthUnavailable, createClerkVerifier, frontendApi } from '../src/auth.js';
 import { MemoryStore } from '../src/store.js';
 import { fakeGemini, fakeMealDb, fakeOcr, testConfig } from './fakes.js';
 
@@ -83,6 +83,15 @@ describe('session tokens', () => {
     k.state.down = true;
     expect((await v.verify(token({}))).id).toBe('user_alice');
     await expect(v.verify(token({}, { kid: 'k3' }))).rejects.toThrow('Unknown signing key');
+  });
+
+  it("says sign-in can't be checked, not that the session is bad, when Clerk was never reached", async () => {
+    const k = jwks();
+    k.state.down = true;
+    const v = createClerkVerifier({ publishableKey: PK, fetch: k.fetch });
+    await expect(v.verify(token({}))).rejects.toBeInstanceOf(AuthUnavailable);
+    k.state.down = false;
+    expect((await v.verify(token({}))).id).toBe('user_alice');
   });
 });
 
