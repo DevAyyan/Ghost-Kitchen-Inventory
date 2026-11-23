@@ -15,7 +15,7 @@ Turn grocery receipts into a fridge you can see, and cook what's about to spoil 
 - **Badges and sharing.** Badges and your run of quiet weeks are on the ledger, with a CO₂ and water estimate for what you rescued and binned. Share your week as a picture or as text. In a shared household, the ledger ranks who rescued the most this week.
 - **Smarter lists.** Review flags food you already have and can show only the rows to check. The shopping list tells you when the food you're adding is already in the fridge and turning.
 - **Tell the fridge.** Say or type "used half the milk and two eggs, threw out the spinach"; you confirm each line before anything changes. **Plan the next 3 days** picks meals that use the most turning food between them. Low-risk food you won't get to can be offered to neighbours with one tap.
-- **Guided tour.** `/?tour=1` loads the sample fridge in demo mode and walks through the app in eight stops. Also in Settings → Demo mode. Pitch and video plan: `docs/pitch.md`.
+- **Guided tour.** `/?tour=1` loads the sample fridge in demo mode and walks through the app in eight stops. Also in Settings → Demo mode. Pitch and video plan: `docs/pitch.md`. How it was built with Kiro: `docs/kiro.md`.
 - **Budget and your data.** An optional monthly grocery budget on the ledger. Settings → Data → Export my data saves everything as a JSON file (no photos, no server token).
 
 Who it's for: a household that wants to waste less food and says so in money. The ledger (what you spent, saved and wasted) is the hook; the fridge is how it stays up to date.
