@@ -48,6 +48,10 @@ export interface PersonalStats {
   saved: { minor: number; currency: string }[];
   lost: { minor: number; currency: string }[];
   buried: number;
+  /** Food used before it spoiled, fresh or turning (First light). */
+  usedBeforeSpoiling: number;
+  /** Spoiled food thrown out (Gravedigger). */
+  buriedSpoiled: number;
   /** Weeks in a row, up to this one, with food rescued and none thrown out. */
   streak: number;
 }
@@ -60,6 +64,8 @@ export function personalStats(events: ItemEvent[], now: string): PersonalStats {
     saved: saved.map((e) => ({ minor: e.minor, currency: e.currency })),
     lost: thrown.map((e) => ({ minor: e.minor, currency: e.currency })),
     buried: thrown.length,
+    usedBeforeSpoiling: events.filter((e) => e.type === 'used' && e.stage !== 'spoiled').length,
+    buriedSpoiled: thrown.filter((e) => e.stage === 'spoiled').length,
     streak: cleanWeeks(events, now),
   };
 }
@@ -110,12 +116,12 @@ export function badges(s: PersonalStats): Badge[] {
   const b = (id: BadgeId, title: string, how: string, art: Badge['art'], have: number, need: number): Badge =>
     ({ id, title, how, art, earned: have >= need, progress: { have: Math.min(have, need), need } });
   return [
-    b('first-rescue', 'First light', 'Use something before it spoils', 'candle', s.banished, 1),
+    b('first-rescue', 'First light', 'Use something before it spoils', 'candle', s.usedBeforeSpoiling, 1),
     b('exorcist', 'Exorcist', 'Banish 10 ghosts', 'ghost', s.banished, 10),
     b('ghostbuster', 'Ghostbuster', 'Banish 50 ghosts', 'trophy', s.banished, 50),
     b('clean-week', 'Quiet night', 'A week with food rescued and none thrown out', 'moon', s.streak, 1),
     b('clean-month', 'Calm house', '4 quiet weeks in a row', 'crystalBall', s.streak, 4),
     // Clearing out spoiled food is the right call, so it gets one badge.
-    b('gravedigger', 'Gravedigger', 'Bury spoiled food instead of keeping it', 'headstone', s.buried, 1),
+    b('gravedigger', 'Gravedigger', 'Bury spoiled food instead of keeping it', 'headstone', s.buriedSpoiled, 1),
   ];
 }
