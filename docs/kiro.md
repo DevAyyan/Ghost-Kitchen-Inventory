@@ -7,9 +7,13 @@ Our approach: **the AI writes the code, and rules written down in the repo decid
 The app gives food-safety advice, so a wrong answer could make someone ill. Most of our Kiro setup exists to
 make the safe choice the default, in every session and every change.
 
-## Kiro apps: CLI
+## Kiro apps: IDE and CLI
 
-Most of the build ran in **Kiro CLI**, in long sessions that went from a feature request to working,
+We used the **Kiro IDE** to edit and review code. The steering rules and the four save hooks below run
+there: saving a file typechecks it, runs the tests, or has Kiro review the change, so problems show up in
+the editor as soon as they're made.
+
+The long tasks ran in **Kiro CLI**, in sessions that went from a feature request to working,
 tested, committed code. A typical task was "add live sync across devices": Kiro read the code, changed the
 client and the server, wrote tests, ran a two-device browser test, and committed.
 
@@ -18,6 +22,8 @@ Playwright browser tests, `vercel dev`, and git. For example, when deployment fa
 `FUNCTION_INVOCATION_FAILED`, Kiro rebuilt the app the way Vercel does in a clean clone, unpacked the
 built function, and ran it against a throwaway Postgres. That reproduced the exact `ERR_REQUIRE_ESM` crash
 from the logs, and the fix was verified before it was pushed.
+
+Both apps read the same `.kiro/` folder, so the rules were the same whichever one we used.
 
 ## Steering docs: the biggest difference
 
